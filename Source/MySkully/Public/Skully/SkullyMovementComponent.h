@@ -35,6 +35,8 @@ protected:
 	bool ApplySlopeSlide(float DeltaTime);
 	// 이동 처리
 	void Move(float DeltaTime);
+	// 계단 이동 초리
+	bool TryStepUp(const FVector& MoveDelta, const FHitResult& Hit, float DeltaTime);
 	// 지면 판정
 	void CheckGround(float DeltaTime);
 	// 이동에 관련된 상태값 갱신
@@ -54,7 +56,7 @@ protected:
 	
 	// 최대 속력
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
-	float MaxSpeed = 5500.0f;
+	float MaxSpeed = 4500.0f;
 	
 	// 현재 속력
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
@@ -66,15 +68,23 @@ protected:
 	
 	// 가속값
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
-	float Acceleration = 12000.0f;
+	float Acceleration = 18000.0f;
 	
 	// 마찰력
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground|Friction")
-	float GroundFriction = 2000.0f;
+	float GroundFriction = 3000.0f;
 	
 	// 공기 저항력
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Air|Friction")
-	float AirFriction = 100.0f;
+	float AirFriction = 2000.0f;
+	
+	// 오를 수 있는 높이
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
+	float MaxStepHeight = 45.0f;
+	
+	// 전방 계단 감지 거리
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
+	float StepForwardCheck = 1.0f;	
 	
 	// 오를 수 있는 경사면 각도
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
@@ -119,22 +129,49 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
 	float SlideDamping = 2.0f;
 	
+	// 바닥 붙임용 하향(ApplyGravity)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground|Stability")
+	float GroundStickDownSpeed = 120.0f;
+	
+	// 바닥 붙임용 하향(Move) 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground|Stability")
+	float GroundStickForce = 800.0f;
+	
 // Move 함수 파라미터
 	// CachedFloorNormal.Z가 얼마나 위를 향하느냐(1에 가까울수록 평지, 작아질수록 가파른 경사)
 	// 줄이면? 불안정 판정이 덜 자주 발생, 경사면 이동이 더 정상적으로 되나 특이점(엣지, 꼭지점 등) 탈출이 약해짐
 	// 늘리면? 조금만 기울어도 불안정 판정, 투영 이동을 거의 안 하고 fallback이 늘어나 경사 오르기/내리기 느낌이 망가짐 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground|Stability")
-	float UnstableFloorZThreshold = 0.97f;
+	float UnstableFloorZThreshold = 0.92f;
 	
 	// 노멀 변화량 지표(1: 완전 동일, 0.99: 거의 동일, 0.95: 꽤 달라짐, 0.9이하: 확실히 급변)
 	// 줄이면? 엣지 판정이 덜 민감해짐, 경계면에서 멈춤이 다시 나올 확률이 높아지나 흔들림이 줄어듬
 	// 늘리면? 아주 조금만 노멀 변해도 엣지 판정, 경계 탈출이 강해지나 정상 경사에서도 불필요하게 fallback이 증가해 미세한 떨림 및 감각이 미끄덩해질 수 있음
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground|Stability")
-	float FloorNormalDotEdgeThreshold = 0.95f;
+	float FloorNormalDotEdgeThreshold = 0.9f;
 	
 	// 투영 후 최소 이동량
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground|Stability")
 	float MinProjectedMoveCm = 1.0f;
+	
+	// 벽/바닥 판정 임계값(노멀 Z가 이 값보다 작으면 벽 취급)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wall|Stability")
+	float WallNormalZThreshold = 0.1f;
+	
+	// 벽에 박고 있을 때 속도 감쇠(0이면 완전 정지, 1이면 감쇠 없음)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wall|Stability")
+	float WallImpactSpeedDamping = 0.2f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wall|Stability")
+	float WallDetachCooldown = 0.08f;
+
+	// 경사면 속도 감소값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Speed")
+	float UphillSpeedPenalty = 0.9f;
+	
+	// 아무리 가팔라도 이 비율 아래로는 안 떨어지게(조작감 안전장치)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Speed")
+	float MinUphillSpeedScale = 0.2f;
 	
 // SweepGround 파라미터
 	// 스컬리의 맨 아래 위치(SphereComponent의 반지름)부터 지면까지의 감지 거리
@@ -158,13 +195,13 @@ protected:
 	// 줄이면? 각도가 낮아져 더 안정적인 착지
 	// 늘리면? 각도가 높아져 경사면에서 과도하게 달라붙는 느낌이 생길 수도 있음
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground|Stability")
-	float FlatGroundZThreshold = 0.997f;
+	float FlatGroundZThreshold = 0.985f;
 	
 	// CachedFloorNormal에서 Hit.ImpactNormal로의 보간 속도
 	// 클수록 더 빨리 목표 노멀에 가까워짐, 경사면 적용이 즉각적이고 반응이 시원해짐, 노멀이 확 튀면서 끊김/멈춤/떨림 발생
 	// 작을수록 더 천천히 따라감, 노멀이 튀는 현상 완화와 이동이 매끈해짐, 경사면 변화에 대한 반응이 느림
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground|Stability")
-	float FloorNormalInterpSpeed = 12.0f;
+	float FloorNormalInterpSpeed = 8.0f;
 	
 	// 아래로 라인트레이스를 쏘는 거리
 	// MaxGroundDistance의 값에 따라 더 큰 적당한 값으로 설정
@@ -192,4 +229,8 @@ private:
 	
 	// 슬라이딩 플래그
 	bool bIsSlopeSliding = false;
+	
+	float WallDetachTimeLeft = 0.0f;
+	
+	FVector LastWallNormal = FVector::ZeroVector;	
 };

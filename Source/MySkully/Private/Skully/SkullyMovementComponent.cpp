@@ -3,6 +3,7 @@
 
 #include "Skully/SkullyMovementComponent.h"
 
+#include "LandscapeGizmoActiveActor.h"
 #include "Components/SphereComponent.h"
 
 namespace
@@ -52,7 +53,9 @@ void USkullyMovementComponent::ApplyGravity(float DeltaTime)
 	// Grounded 상태에서는 중력으로 바닥을 파고들지 않도록 Z 속도를 최소 0으로 유지
 	else
 	{
-		Velocity.Z = FMath::Max(Velocity.Z, 0.0f);
+		const float WalkableZ = FMath::Cos(FMath::DegreesToRadians(MaxSlopeAngle));
+		const bool bWalkableFloor = CachedFloorNormal.Z >= WalkableZ;
+		Velocity.Z = bWalkableFloor ? -GroundStickDownSpeed : 0.0f;
 	}
 }
 
@@ -208,12 +211,48 @@ void USkullyMovementComponent::Move(float DeltaTime)
 	const bool bHasInput = !Input.IsNearlyZero();
 	// 입력 벡터의 방향
 	const FVector InputDir = bHasInput ? Input.GetSafeNormal() : FVector::ZeroVector;
+	// 시작 위치
+	const FVector StartLocation = UpdatedComponent->GetComponentLocation();
+	const float WalkableZ = FMath::Cos(FMath::DegreesToRadians(MaxSlopeAngle));
 	
 	// 목표 힘
 	FVector TargetVelocity2D = FVector::ZeroVector;
 	if (bHasInput == true)
 	{
 		TargetVelocity2D = FVector(InputDir.X, InputDir.Y, 0.0f) * MaxSpeed;
+	}
+	
+	// 벽 투영(벽 제약)
+	if (WallDetachTimeLeft > 0.0f && LastWallNormal.IsNearlyZero() == false)
+	{
+		WallDetachTimeLeft -= DeltaTime;
+		TargetVelocity2D = FVector::VectorPlaneProject(TargetVelocity2D, LastWallNormal);
+	}
+	
+	// 경사면 윗 방향 속도 감소
+	if (MovementMode == ESkullyMovementMode::Grounded && bHasInput == true)
+	{
+		// 바닥 노멀
+		const FVector FloorN = CachedFloorNormal.GetSafeNormal();
+		
+		// 내리막/오르막 방향
+		const FVector DownSlopeDir = FVector::VectorPlaneProject(FVector(0.0f, 0.0f, -1.0f), FloorN).GetSafeNormal();
+		const FVector UpSlopeDir = -DownSlopeDir;
+		
+		// 입력이 오르막을 얼마나 향하나(0~1)
+		const float Uphill = FMath::Clamp(FVector::DotProduct(InputDir, UpSlopeDir), 0.0f, 1.0f);
+		
+		// FlatGroundZThreshold - WalkableZ: 평지 취급 경계부터 최대 경사까지를 0~1로 맵핑 
+		// FlatGroundZThreshold - WalkableZ가 너무 작으면(FlatGroundZThreshold가 WalkableZ에 너무 가까우면) 
+		// 조금만 변해도 SlopeSteep이 확 커져서 또 경계가 생김
+		const float Denom = FMath::Max(FlatGroundZThreshold - WalkableZ, 0.01f);
+		// 경사가 얼마나 가파른가(0~1): FlatGroundZThreshold 근처면 0, 가팔라질수록 1
+		float SlopeSteep = FMath::Clamp((FlatGroundZThreshold - FloorN.Z) / Denom, 0.0f, 1.0f);
+		// 0~1을 부드럽게: 0 근처는 더 완만, 중간부터 서서히 증가 
+		SlopeSteep = SlopeSteep * SlopeSteep * (3.0f - 2.0f * SlopeSteep);
+		
+		const float SpeedScale = 1.0f - (Uphill * SlopeSteep * UphillSpeedPenalty);
+		TargetVelocity2D *= FMath::Clamp(SpeedScale, MinUphillSpeedScale, 1.0f);
 	}
 	
 	// 현재 힘
@@ -251,11 +290,13 @@ void USkullyMovementComponent::Move(float DeltaTime)
 			NormalDot < FloorNormalDotEdgeThreshold;
 		// 보정 이동
 		FVector AdjustedMove;
+		// 엣지/급변 노멀 체크
+		const bool bVeryEdge = NormalDot < FloorNormalDotEdgeThreshold;
 		// 슬라이드로 이미 자연스러운 속도가 만들어진 프레임에는
 		// 투영 붕괴(엣지/경계)에서의 최소 이동 보장(MinProjectedMoveCm)이 에너지를 인위적으로 주입할 수 있다.
 		// 입력이 있는 경우엔 조작감/정지 방지가 중요하니 최소 이동 보장을 허용
 		// 입력이 없고(정지 후 굴러떨어짐) 슬라이드가 적용된 프레임에는 최소 이동 보장을 끈다
-		const bool bAllowMinMoveGuarantee = bHasInput;
+		const bool bAllowMinMoveGuarantee = bHasInput == true && bVeryEdge == false;
 		
 		// 불안정 바닥이면
 		if (bUnstableFloor == true)
@@ -299,16 +340,136 @@ void USkullyMovementComponent::Move(float DeltaTime)
 		MoveDelta = AdjustedMove;
 	}
 	
+	if (WallDetachTimeLeft > 0.0f && LastWallNormal.IsNearlyZero() == false)
+	{
+		MoveDelta = FVector::VectorPlaneProject(MoveDelta, LastWallNormal);
+	}
+	
+	if (MovementMode == ESkullyMovementMode::Grounded)
+	{
+		// 바닥 노멀
+		const FVector FloorN = CachedFloorNormal;
+		
+		// 바닥이 안정적인지
+		const float NormalDot = FVector::DotProduct(CachedFloorNormal, LastFloorNormal);
+		const bool bUnstableFloor = CachedFloorNormal.Z < UnstableFloorZThreshold || NormalDot < FloorNormalDotEdgeThreshold;
+		// 오르막/가파른 경사에서 적용하고 싶으면 조건을 건다
+		const bool bWalkableFloor = FloorN.Z >= WalkableZ;
+		const bool bSteepSlope = FloorN.Z < FlatGroundZThreshold; // 평지 제외
+		const bool bHasSpeed2D = FVector(Velocity.X, Velocity.Y, 0.0f).SizeSquared() > FMath::Square(10.0f);
+		
+		if (bUnstableFloor == true && bWalkableFloor == true && bSteepSlope == true && bHasSpeed2D == true)
+		{
+			// 바닥 방향으로 살짝 눌러준다(바닥 노멀 반대방향)
+			// 너무 과하게 눌러시 지형을 파고들 수 있으므로 Min
+			const float StickDelta = FMath::Min(GroundStickForce * DeltaTime, 5.0f);
+			
+			MoveDelta += (-FloorN) * StickDelta;
+		}
+	}
+	
 	// Sweep 이동(관통 방지) + Hit 결과를 돌려줌
 	FHitResult Hit;
 	SafeMoveUpdatedComponent(MoveDelta, UpdatedComponent->GetComponentQuat(), true, Hit);
 
+	const bool bIsWallHitNow = Hit.bBlockingHit == true && Hit.Normal.Z < WallNormalZThreshold;
+	if (bIsWallHitNow == true)
+	{
+		LastWallNormal = Hit.Normal;
+		WallDetachTimeLeft = WallDetachCooldown;
+	}
+	
 	// 막혔으면
 	if (Hit.bBlockingHit == true)
 	{
+		const float Nz = Hit.Normal.Z;
+		const bool bIsWall = Nz < WallNormalZThreshold;
+		const bool bUnwalkableSlope = Hit.Normal.Z < WalkableZ && bIsWall == false;
+		
+		// 면 안으로 파고드는 속도 제거
+		const float Into = FVector::DotProduct(Velocity, Hit.Normal);
+		if (Into < 0.0f)
+		{
+			Velocity -= Hit.Normal * Into;
+		}
+		
+		if (bUnwalkableSlope == true)
+		{
+			if (bHasInput == true)
+			{
+				if (TryStepUp(MoveDelta, Hit, DeltaTime) == true)
+				{
+					return;
+				}
+			}
+			
+			// 지금 프레임에서 의도한 2D 이동(조작 방향 기반)
+			// (MoveDelta는 이미 바닥 투영/보정이 들어가 잇어서 steep 면에서는 슬라이드가 0으로 죽기 쉬움)
+			const FVector Velocity2D(Velocity.X, Velocity.Y, 0.0f);
+			const float Speed2D = Velocity2D.Size();
+			const FVector DesiredDir2D = bHasInput ? FVector(InputDir.X, InputDir.Y, 0.0f) 
+				: (Speed2D > KINDA_SMALL_NUMBER ? Velocity2D / Speed2D : FVector::ZeroVector);
+			FVector DesiredDelta = DesiredDir2D * Speed2D * DeltaTime;
+			
+			// 면 안쪽 성분 제거(벽 슬라이드처럼)
+			FVector Slide = FVector::VectorPlaneProject(DesiredDelta, Hit.Normal);
+			
+			// 오르막(상승) 성분만 제거
+			FVector UphillDir = FVector::VectorPlaneProject(FVector::UpVector, Hit.Normal);
+			if (UphillDir.IsNearlyZero() == false)
+			{
+				UphillDir = UphillDir.GetSafeNormal();
+				// Slide가 오르막(상승)으로 향하는 성분만 제거
+				const float UpAmount = FVector::DotProduct(Slide, UphillDir);;
+				if (UpAmount > 0.0f)
+				{
+					Slide -= UphillDir * UpAmount;
+				}
+			}
+			
+			// 슬라이드가 너무 작으면(거의 0) 그냥 벽 슬라이드 함수로 fallback
+			// (엣지/코너/특이 케이스에서 완전 정지가 나오는 걸 방지)
+			if (Slide.SizeSquared() < FMath::Square(0.5f))
+			{
+				SlideAlongSurface(DesiredDelta, 1.0f - Hit.Time, Hit.Normal, Hit);
+				
+				return;
+			}
+			
+			// 남은 시간만큼 이동
+			const float RemainingTime = 1.0f - Hit.Time;
+			if (RemainingTime > KINDA_SMALL_NUMBER)
+			{
+				FHitResult SlideHit;
+				SafeMoveUpdatedComponent(Slide * RemainingTime, UpdatedComponent->GetComponentQuat(), true, SlideHit);
+			}
+			
+			// 기존 SlideAlongSurface() 타지 않게 차단
+			return;
+		}
+		
 		// 벽을 타고 미끄러짐 시도
 		SlideAlongSurface(MoveDelta, 1.0f - Hit.Time, Hit.Normal, Hit);
 
+		const bool bIsWallHit = Hit.Normal.Z < WallNormalZThreshold;
+		
+		if (bIsWallHit == true)
+		{
+			// 벽 안으로 들어가려는 속도 성분 제거: 벽에 미끄러지다 벽에서 완진히 미끄러진 후 앞으로 폭발하는 현상 제거
+			const float IntoWall = FVector::DotProduct(Velocity, Hit.Normal);
+			if (IntoWall < 0.0f)
+			{
+				Velocity -= Hit.Normal * IntoWall;
+			}
+			// 벽에 박는 입력이면 추가로 감속/정지
+			const float PushIntoWall = FVector::DotProduct(InputDir, Hit.Normal);
+			if (bHasInput && PushIntoWall < -0.2f)
+			{
+				Velocity.X *= WallImpactSpeedDamping;
+				Velocity.Y *= WallImpactSpeedDamping;
+			}
+		}
+		
 		// Grounded면 한 번 더 바닥 기준 재투영 이동을 짧게 시도
 		// 경계(Edge)에서 막힐 때 Hit.Normal은 벽도 아니고 바닥도 아닌 애매한 노멀일 수 있으므로 1회 슬라이드로는 이동이 소실되기 쉬움
 		// 따라서 Edge/Corner에서는 1회 슬라이드로 이동이 0이 될 수 있어서 2-pass로 재시도
@@ -333,6 +494,85 @@ void USkullyMovementComponent::Move(float DeltaTime)
 			}
 		}
 	}
+	
+	const FVector EndLocation = UpdatedComponent->GetComponentLocation();
+	const FVector ActualDelta = EndLocation - StartLocation;
+	
+	if (DeltaTime > KINDA_SMALL_NUMBER)
+	{
+		const bool bHadBlockingHit = Hit.bBlockingHit;
+		const bool bIsWallHit = bHadBlockingHit == true && Hit.Normal.Z < WallNormalZThreshold;
+		
+		if (bIsWallHit == true)
+		{
+			const FVector ActualVelocity2D = FVector(ActualDelta.X, ActualDelta.Y, 0.0f) / DeltaTime;
+			Velocity.X = ActualVelocity2D.X;
+			Velocity.Y = ActualVelocity2D.Y;			
+		}
+	}
+}
+
+// 계단 이동 처리
+bool USkullyMovementComponent::TryStepUp(const FVector& MoveDelta, const FHitResult& Hit, float DeltaTime)
+{
+	if (MovementMode != ESkullyMovementMode::Grounded)
+	{
+		return false;
+	}
+	
+	const USphereComponent* Sphere = Cast<USphereComponent>(UpdatedComponent);
+	if (Sphere == nullptr)
+	{
+		return false;
+	}
+	
+	// 벽이 너무 완만하면 step이 아니라 경사로 취급할 수도 잇으니 step은 거의 벽일 때만 시도
+	if (Hit.Normal.Z > 0.2f)
+	{
+		return false;
+	}
+	
+	const float Radius = Sphere->GetScaledSphereRadius();
+	const float StepUpHeight = MaxStepHeight;
+	
+	if (StepUpHeight <= 0.0f)
+	{
+		return false;
+	}
+	
+	// 위로 올려서 공간이 있는지 체크
+	FHitResult UpHit;
+	SafeMoveUpdatedComponent(FVector(0.0f, 0.0f, StepUpHeight), UpdatedComponent->GetComponentQuat(), true, UpHit);
+	if (UpHit.bBlockingHit == true)
+	{
+		// 위로 못 올라가면 실패 -> 원위치 복구
+		SafeMoveUpdatedComponent(FVector(0.0f, 0.0f, -StepUpHeight), UpdatedComponent->GetComponentQuat(), true, UpHit);
+		return false;
+	}
+	
+	// 앞으로 조금 이동(턱 위로)
+	const FVector ForwardDelta = FVector(MoveDelta.X, MoveDelta.Y, 0.0f);
+	FHitResult ForwardHit;
+	SafeMoveUpdatedComponent(ForwardDelta, UpdatedComponent->GetComponentQuat(), true, ForwardHit);
+	
+	if (ForwardHit.bBlockingHit == true)
+	{
+		// 앞으로도 막히면 실패 -> 되돌림
+		SafeMoveUpdatedComponent(-ForwardDelta, UpdatedComponent->GetComponentQuat(), true, ForwardHit);
+		SafeMoveUpdatedComponent(FVector(0.0f, 0.0f, -StepUpHeight), UpdatedComponent->GetComponentQuat(), true, ForwardHit);
+		return false;
+	}
+	
+	// 아래로 내려서 착지
+	FHitResult DownHit;
+	SafeMoveUpdatedComponent(FVector(0.0f, 0.0f, -StepUpHeight - Radius - 2.0f), UpdatedComponent->GetComponentQuat(), true, DownHit);
+	
+	if (DownHit.bBlockingHit == false)
+	{
+		return false;
+	}
+	
+	return true;
 }
 
 // PawnMovementComponent의 입력 누적 벡터를 가져오고 초기화
