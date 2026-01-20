@@ -29,13 +29,18 @@ ASkully::ASkully()
 	ArrowComponent->SetupAttachment(RootComponent);
 	ArrowComponent->ArrowLength = 150.0f;
 	
+	// 피벗 생성
+	MeshPivot = CreateDefaultSubobject<USceneComponent>(TEXT("MeshPivot"));
+	MeshPivot->SetupAttachment(RootComponent);
+	MeshPivot->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
+	
 	// 스켈레탈 메시(Skully_Bone) 생성
 	Skully_Bone = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Skully_BoneMesh"));
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> Skully_BoneMesh(TEXT("/Game/Character/Skully/Bone/Skully_Bone.Skully_Bone"));
 	if (Skully_BoneMesh.Succeeded() == true)
 	{
 		Skully_Bone->SetSkeletalMesh(Skully_BoneMesh.Object);
-		Skully_Bone->SetupAttachment(RootComponent);
+		Skully_Bone->SetupAttachment(MeshPivot);
 		Skully_Bone->SetRelativeLocation(FVector(10.0f, 0.0f, -8.0f));
 	}
 	
@@ -45,7 +50,7 @@ ASkully::ASkully()
 	if (Skully_ClayMesh.Succeeded() == true)
 	{
 		Skully_Clay->SetStaticMesh(Skully_ClayMesh.Object);
-		Skully_Clay->SetupAttachment(RootComponent);
+		Skully_Clay->SetupAttachment(MeshPivot);
 		Skully_Clay->SetRelativeLocation(FVector(20.0f, 0.0f, -8.0f));
 	}
 	
@@ -64,7 +69,8 @@ ASkully::ASkully()
 	// 무브먼트 컴포넌트 생성
 	MovementComponent = CreateDefaultSubobject<USkullyMovementComponent>(TEXT("MovementComponent"));
 	MovementComponent->UpdatedComponent = SphereComponent;
-		
+	MovementComponent->VisualComponent = MeshPivot;
+			
 	// 폰 설정
 	// 컨트롤러 주입
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
@@ -102,6 +108,8 @@ void ASkully::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	{
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASkully::Move);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ASkully::Look);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ASkully::Jump);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ASkully::StopJump);
 	}
 }
 
@@ -132,5 +140,21 @@ void ASkully::Look(const FInputActionValue& Value)
 	{
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
+	}
+}
+
+// 점프
+void ASkully::Jump(const FInputActionValue& Value)
+{
+	if (MovementComponent != nullptr)
+	{
+		MovementComponent->RequestJump();
+	}
+}
+void ASkully::StopJump(const FInputActionValue& Value)
+{
+	if (MovementComponent != nullptr)
+	{
+		MovementComponent->RequestJumpRelease();
 	}
 }

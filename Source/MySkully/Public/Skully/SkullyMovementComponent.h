@@ -6,10 +6,11 @@
 #include "GameFramework/PawnMovementComponent.h"
 #include "SkullyMovementComponent.generated.h"
 
-enum class ESkullyMovementMode
+UENUM(BlueprintType)
+enum class ESkullyMovementMode : uint8
 {
-	Grounded,
-	Falling
+	Grounded UMETA(DisplayName = "Grounded"),
+	Falling UMETA(DisplayName = "Falling")
 };
 
 /**
@@ -25,9 +26,18 @@ public:
 	
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	
+	// 점프 요청
+	void RequestJump();
+	// 점프 종료
+	void RequestJumpRelease();
+	
 protected:
 	// 중력 적용
 	void ApplyGravity(float DeltaTime);
+	// 점프 로직
+	void TryConsumeJump();
+	// 점프 조건
+	bool CanJump() const;
 	// 저항 적용
 	void ApplyFriction(float DeltaTime, float GroundedFriction);
 	// 경사면에서 정지 시 미끄러짐(굴러떨어짐) 적용
@@ -35,6 +45,8 @@ protected:
 	bool ApplySlopeSlide(float DeltaTime);
 	// 이동 처리
 	void Move(float DeltaTime);
+	// 굴러가는 효과
+	void ApplyVisualRoll(const FVector& ActualDelta);
 	// 지면 판정
 	void CheckGround(float DeltaTime);
 	// 이동에 관련된 상태값 갱신
@@ -43,14 +55,26 @@ protected:
 	bool SweepGround(FHitResult& OutHit);
 	// 바닥 위치 보정
 	void SnapToGround(const FHitResult& Hit);
-		
+	
 	// 입력 벡터 소비 및 정규화
 	FVector ConsumeMovementInput();
+	
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Visual")
+	USceneComponent* VisualComponent = nullptr;
 	
 protected:	
 	// 중력값
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gravity")
 	float Gravity = 2000.0f;
+	
+	// 상승 중
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gravity")
+	float JumpGravityScale = 1.0f;
+	
+	// 하강 중
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gravity")
+	float FallGravityScale = 2.0f;
 	
 	// 최대 속력
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
@@ -66,21 +90,33 @@ protected:
 	
 	// 가속값
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
-	float Acceleration = 10000.0f;
+	float Acceleration = 8000.0f;
 	
 	// 마찰력
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground|Friction")
-	float GroundFriction = 2000.0f;
+	float GroundFriction = 1500.0f;
 	
 	// 경사면 미끄러짐(굴러떨어짐) 중 적용할 마찰력(운동 마찰 느낌)
 	// 너무 크면 슬라이드가 죽고, 너무 작으면 얼음처럼 내려감
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Friction")
-	float SlidingFriction = 200.0f;
+	float SlidingFriction = 50.0f;
+	
+	// 공기 저항력
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Air|Friction")
+	float AirFriction = 5000.0f;
+	
+	// 점프 속도
+	UPROPERTY(EditAnywhere, Category="Jump")
+	float JumpSpeed = 2000.0f;
+
+	// 점프 중 바닥 붙잡임 무시 시간
+	UPROPERTY(EditAnywhere, Category="Jump")
+	float JumpIgnoreGroundTime = 0.08f;
 	
 	// 정지 마찰을 각도대신 가속도 임계치로 모델링하기 위한 값
 	// 중력의 경사 성분(VectorPlaneProject(Gravity, FloorN)이 이 값보다 작으면 완전 정지 유지
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
-	float StaticFrictionAccel = 350.0f;
+	float StaticFrictionAccel = 80.0f;
 	
 	// 슬라이드가 막 시작될 대(속도 거의 0) 한 프레임 멈칫하는 현상 방지용 최소 시작 속도
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
@@ -89,10 +125,6 @@ protected:
 	// 엣지/경계에서 노멀이 튀어 슬라이드가 멈추는 것을 완화하기 위한 downhill 샘플 거리
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
 	float DownhillSampleDistance = 10.0f;
-	
-	// 공기 저항력
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Air|Friction")
-	float AirFriction = 100.0f;
 	
 	// 오를 수 있는 경사면 각도
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
@@ -104,7 +136,7 @@ protected:
 	
 	// 경사면 미끄러짐 가속 스케일(1.0이면 중력의 경사 성분 그대로)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
-	float SlopeSlideScale = 2.5f;
+	float SlopeSlideScale = 3.0f;
 	
 	// 경사면에서 내려가는 최대 속도 제한
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
@@ -113,7 +145,7 @@ protected:
 	// 슬라이딩 중 속도 댐핑 계수(속도 비례 감쇠)
 	// 값이 클수록 빨리 감속되고 종단속도가 낮아짐
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
-	float SlideDamping = 2.0f;
+	float SlideDamping = 0.2f;
 	
 	// 지면 감지 거리
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground|Stability")
@@ -163,6 +195,20 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Movement|Ground")
 	float GroundLineTraceDistance = 12.0f;
 	
+	// 벽에 부딪히고 차당 감쇠 강도(클수록 빨리 줄어듦)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Wall")
+	float WallSlideDamping = 6.0f;
+	
+	// 벽에 부딪히고 노멀 성분 제거(1이면 노멀 성분 완전 제거, 0이면 유지)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Wall")
+	float WallNormalKill = 1.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Visual")
+	bool bRollVisualOnMove = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Visual")
+	float RollVisualScale = 1.0f; // 과장/완화
+	
 private:
 	// 움직임 상태값
 	ESkullyMovementMode MovementMode = ESkullyMovementMode::Falling;
@@ -184,4 +230,23 @@ private:
 	
 	// 슬라이딩 플래그
 	bool bIsSlopeSliding = false;
+	
+	FVector PendingSlopeSlideAccel2D = FVector::ZeroVector;
+	bool bSlopeSlideThisFrame = false;
+	
+	// 스페이스를 누르고 있는가
+	bool bJumpHeld = false;
+	// 점프 예약 플래그
+	bool bWantsToJump = false;
+	// 점프 버퍼
+	float JumpBufferTime = 0.12f;
+	float JumpBufferRemaining = 0.0f;
+	// 바닥 붙잡임 무시 남은 시간
+	float JumpIgnoreGroundRemaining = 0.0f;
+	
+	FVector LastActualDelta = FVector::UpVector;
+	
+	bool bOnUnwalkableSlope = false;
+	FVector UnwalkableNormal = FVector::UpVector;
+	
 };

@@ -48,6 +48,10 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess="true"))
 	UArrowComponent* ArrowComponent;
 	
+	// Mesh Pivot
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Pivot", meta = (AllowPrivateAccess="true"))
+	USceneComponent* MeshPivot;
+	
 	// Mesh
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh", meta = (AllowPrivateAccess="true"))
 	USkeletalMeshComponent* Skully_Bone;
@@ -78,5 +82,6 @@ private:
 protected:
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
-	
+	void Jump(const FInputActionValue& Value);
+	void StopJump(const FInputActionValue& Value);
 };
