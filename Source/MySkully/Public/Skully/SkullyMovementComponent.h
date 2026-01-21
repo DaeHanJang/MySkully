@@ -28,16 +28,14 @@ public:
 	
 	// 점프 요청
 	void RequestJump();
-	// 점프 종료
+	// 점프 종료 요청
 	void RequestJumpRelease();
 	
 protected:
 	// 중력 적용
 	void ApplyGravity(float DeltaTime);
-	// 점프 로직
-	void TryConsumeJump();
-	// 점프 조건
-	bool CanJump() const;
+	// 걸을 수 없는 바닥 슬라이드 가속
+	void ApplyUnwalkableSlide(float DeltaTime);
 	// 저항 적용
 	void ApplyFriction(float DeltaTime, float GroundedFriction);
 	// 경사면에서 정지 시 미끄러짐(굴러떨어짐) 적용
@@ -58,6 +56,13 @@ protected:
 	
 	// 입력 벡터 소비 및 정규화
 	FVector ConsumeMovementInput();
+	
+	// 점프
+	void TryConsumeJump(); // 점프 메인 로직
+	bool CanJump() const; // 점프 가능 판정
+	void UpdateJumpBuffer(float DeltaTime); // 점프 버퍼 대기 시간 갱신
+	bool TryStartJumpFromBuffer();
+	void UpdateJumpBufferTimer(float DeltaTime);
 	
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Visual")
@@ -99,24 +104,16 @@ protected:
 	// 경사면 미끄러짐(굴러떨어짐) 중 적용할 마찰력(운동 마찰 느낌)
 	// 너무 크면 슬라이드가 죽고, 너무 작으면 얼음처럼 내려감
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Friction")
-	float SlidingFriction = 50.0f;
+	float SlidingFriction = 2.5f;
 	
 	// 공기 저항력
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Air|Friction")
 	float AirFriction = 5000.0f;
 	
-	// 점프 속도
-	UPROPERTY(EditAnywhere, Category="Jump")
-	float JumpSpeed = 2000.0f;
-
-	// 점프 중 바닥 붙잡임 무시 시간
-	UPROPERTY(EditAnywhere, Category="Jump")
-	float JumpIgnoreGroundTime = 0.08f;
-	
 	// 정지 마찰을 각도대신 가속도 임계치로 모델링하기 위한 값
 	// 중력의 경사 성분(VectorPlaneProject(Gravity, FloorN)이 이 값보다 작으면 완전 정지 유지
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
-	float StaticFrictionAccel = 80.0f;
+	float StaticFrictionAccel = 600.0f;
 	
 	// 슬라이드가 막 시작될 대(속도 거의 0) 한 프레임 멈칫하는 현상 방지용 최소 시작 속도
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
@@ -136,11 +133,11 @@ protected:
 	
 	// 경사면 미끄러짐 가속 스케일(1.0이면 중력의 경사 성분 그대로)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
-	float SlopeSlideScale = 3.0f;
+	float SlopeSlideScale = 1.8f;
 	
 	// 경사면에서 내려가는 최대 속도 제한
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
-	float MaxSlopeSlideSpeed = 6000.0f;
+	float MaxSlopeSlideSpeed = 7500.0f;
 	
 	// 슬라이딩 중 속도 댐핑 계수(속도 비례 감쇠)
 	// 값이 클수록 빨리 감속되고 종단속도가 낮아짐
@@ -209,6 +206,31 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Visual")
 	float RollVisualScale = 1.0f; // 과장/완화
 	
+	// 정지마찰계수
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Slope")
+	float StaticFrictionMu = 0.25;
+	
+	/********************점프********************/
+	// 점프 속도
+	UPROPERTY(EditAnywhere, Category="Jump")
+	float JumpSpeed = 2000.0f;
+	// 가변 점프 스케일(0~1)
+	// ex) 0.7=상송 속도를 30% 감소
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Jump|Input")
+	float JumpReleaseVelocityScale = 0.7f;
+	// 점프 바닥 감지 무시 시간
+	// 점프 시작 혹은 다음 프레임에서는 지면과 가깝기 때문에 버그 발생이 높음 
+	UPROPERTY(EditAnywhere, Category="Jump|Input")
+	float JumpIgnoreGroundTime = 0.08f;
+	// 점프 버퍼 유지 시간(초)
+	// 이 시간 이내로 착지하면 점프 선입력
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Jump|Input")
+	float JumpBufferTime = 0.12f;
+	// 코요테 타임 유지 시간(초)
+	// 착지 직후에도 점프를 허용하는 시간
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Jump|Input")
+	float CoyoteTime = 0.08f;
+	
 private:
 	// 움직임 상태값
 	ESkullyMovementMode MovementMode = ESkullyMovementMode::Falling;
@@ -234,19 +256,17 @@ private:
 	FVector PendingSlopeSlideAccel2D = FVector::ZeroVector;
 	bool bSlopeSlideThisFrame = false;
 	
-	// 스페이스를 누르고 있는가
-	bool bJumpHeld = false;
-	// 점프 예약 플래그
-	bool bWantsToJump = false;
-	// 점프 버퍼
-	float JumpBufferTime = 0.12f;
-	float JumpBufferRemaining = 0.0f;
-	// 바닥 붙잡임 무시 남은 시간
-	float JumpIgnoreGroundRemaining = 0.0f;
-	
 	FVector LastActualDelta = FVector::UpVector;
 	
 	bool bOnUnwalkableSlope = false;
 	FVector UnwalkableNormal = FVector::UpVector;
 	
+	float CachedSlopeAmount = 0.0f;
+	
+	// 점프
+	bool bJumpHeld = false; // 점프가 입력 중인지 체크
+	bool bWantsToJump = false; // 점프 예약 플래그
+	float JumpIgnoreGroundRemaining = 0.0f; // 점프 바닥 감지 무시 남은 시간
+	float JumpBufferRemaining = 0.0f; // 점프 버퍼 남은 시간
+	float CoyoteRemaining = 0.0f; // 코요테 타임 남은 시간
 };

@@ -29,7 +29,7 @@ ASkully::ASkully()
 	ArrowComponent->SetupAttachment(RootComponent);
 	ArrowComponent->ArrowLength = 150.0f;
 	
-	// 피벗 생성
+	// 메시 피벗 생성
 	MeshPivot = CreateDefaultSubobject<USceneComponent>(TEXT("MeshPivot"));
 	MeshPivot->SetupAttachment(RootComponent);
 	MeshPivot->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
@@ -84,12 +84,6 @@ void ASkully::BeginPlay()
 {
 	Super::BeginPlay();
 	
-}
-
-void ASkully::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
 }
 
 void ASkully::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
