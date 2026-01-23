@@ -1,16 +1,10 @@
-/*
-* 파일명: Skully.cpp
-* 생성일: 2026-01-08
-* 수정일: 2026-01-09
-* 내용: 플레이어 객체 Skully
-*/
-
 #include "Skully/Skully.h"
 
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/ArrowComponent.h"
+#include "Components/HealthComponent/HealthComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Skully/SkullyMovementComponent.h"
 
@@ -42,6 +36,7 @@ ASkully::ASkully()
 		Skully_Bone->SetSkeletalMesh(Skully_BoneMesh.Object);
 		Skully_Bone->SetupAttachment(MeshPivot);
 		Skully_Bone->SetRelativeLocation(FVector(10.0f, 0.0f, -8.0f));
+		Skully_Bone->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 	
 	// 스태틱 메시(Skully_Clay) 생성
@@ -52,6 +47,7 @@ ASkully::ASkully()
 		Skully_Clay->SetStaticMesh(Skully_ClayMesh.Object);
 		Skully_Clay->SetupAttachment(MeshPivot);
 		Skully_Clay->SetRelativeLocation(FVector(20.0f, 0.0f, -8.0f));
+		Skully_Clay->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 	
 	// 스프링 암 생성
@@ -70,6 +66,9 @@ ASkully::ASkully()
 	MovementComponent = CreateDefaultSubobject<USkullyMovementComponent>(TEXT("MovementComponent"));
 	MovementComponent->UpdatedComponent = SphereComponent;
 	MovementComponent->VisualComponent = MeshPivot;
+	
+	// 헬스 컴포넌트 생성
+	HealthComponent = CreateDefaultSubobject<UHealthComponent>(TEXT("HealthComponent"));
 			
 	// 폰 설정
 	// 컨트롤러 주입
@@ -84,6 +83,14 @@ void ASkully::BeginPlay()
 {
 	Super::BeginPlay();
 	
+}
+
+void ASkully::OnDeath_Implementation()
+{
+}
+
+void ASkully::OnTakeDamage_Implementation()
+{
 }
 
 void ASkully::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)

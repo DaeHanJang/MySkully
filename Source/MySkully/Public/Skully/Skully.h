@@ -1,17 +1,12 @@
-/*
- * 파일명: Skully.h
- * 생성일: 2026-01-08
- * 수정일: 2026-01-09
- * 내용: 플레이어 객체 Skully
- */
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Components/SphereComponent.h"
+#include "Components/HealthComponent/HealthInterface.h"
 #include "GameFramework/Pawn.h"
 #include "Skully.generated.h"
 
+class UHealthComponent;
 class UArrowComponent;
 class UCameraComponent;
 class USpringArmComponent;
@@ -25,7 +20,7 @@ class UInputAction;
 struct FInputActionValue;
 
 UCLASS()
-class MYSKULLY_API ASkully : public APawn
+class MYSKULLY_API ASkully : public APawn, public IHealthInterface
 {
 	GENERATED_BODY()
 
@@ -34,6 +29,10 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	
+	// Health Interface
+	virtual void OnDeath_Implementation() override;
+	virtual void OnTakeDamage_Implementation() override;
 
 public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -66,6 +65,10 @@ private:
 	// Movement
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
 	USkullyMovementComponent* MovementComponent;
+	
+	// Health
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
+	UHealthComponent* HealthComponent;
 	
 	// Input
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))

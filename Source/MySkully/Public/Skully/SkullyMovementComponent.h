@@ -39,7 +39,7 @@ protected:
 	/********************이동********************/
 	void Move(float DeltaTime); // 이동 처리
 	FVector ConsumeMovementInput(); // 입력 벡터 소비
-	FVector GetDownhillDir2D(const FVector& FloorN); // 아래(중력) 방향을 바닥 평면에 투영(downhill)
+	FVector GetDownhillDir(const FVector& FloorN); // 아래(중력) 방향을 바닥 평면에 투영(downhill)
 	
 	/******************미끄러짐*******************/
 	void ApplyUnwalkableSlide(float DeltaTime); // 걸을 수 없는 바닥 슬라이드 가속
@@ -108,62 +108,74 @@ protected:
 	float StickZ = 12.0f;
 	
 	/********************이동********************/
-	// 가파른 경사에서 업힐 입력 시 옆 이동 감쇠 시작값
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
-	float UphillPushStartThreshold = 0.6f;
-	// 가파른 경사에서 업힐 입력 시 옆 이동 감쇠 최대값
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
-	float UphillPushFullThreshold  = 1.0f;
-	// 가파른 경사에서 입력 벡터 가공 후 유효한 크기인지 검사값
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move")
-	float MinProjectedInputStrength = 0.2f;
-	// 현재 프레임 바닥 노멀의 경사 판정 기준 값
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
-	float UnstableFloorZThreshold = 0.97f;
-	// 이전 프레임 바닥 노멀과 현재 프레임 바닥 노멀의 유사함 비교 기준 값
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
-	float FloorNormalDotEdgeThreshold = 0.95f;
-	// 최종 이동 벡터 유효 투영 허용치
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
-	float MinProjectedMoveCm = 1.0f;
-	// 이동 후 접지값
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
-	float StickDist = 2.0f;
-	// 수평 속도가 벽 노멀 방향으로 얼마나 향해야 정면 충돌로 볼지
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Wall")
-	float WallHeadOnRatioThreshold = 0.65f;
-	// 충돌면이 바닥이 아니라 벽임을 판정하기 위한 Z임계값
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Wall")
-	float WallNormalZMax = 0.2f;
-	// 벽으로 파고드는 속도가 이 값 이상일 때만 벽에 박힘으로 처리
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Wall")
-	float MinIntoWallSpeed = 200.0f;
-	// 충돌 처리 시 바닥인 경우 노멀 튐 방지 회전 한계값
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Ground")
-	float MaxTurnDeg = 25.0f;
-	// 벽에 파고드는 성분 감쇠값(1이면 성분 완전 제거, 0이면 유지)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Wall")
-	float WallNormalKill = 1.0f;
-	// 벽에 더 세게 박을수록 접선 속도 감쇠값(1이면 성분 완전 제거, 0이면 유지)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Wall")
-	float MaxTangentialKill = 0.45f;
-	// 벽에 접선 감쇠값
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Wall")
-	float WallSlideDamping = 12.0f;
 	// 최대 속력
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
 	float MaxSpeed = 3500.0f;
 	// 가속값
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
 	float Acceleration = 8000.0f;
+	// 목표 속도 생성 시 접선 성분 기본 감쇠값(0~1)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move|Target")
+	float UphillPushStartThreshold = 0.6f;
+	// 목표 속도 생성 시 접선 성분 최대 감쇠값(0~1)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move|Target")
+	float UphillPushFullThreshold  = 1.0f;
+	// 목표 속도 생성 시 유효 입력(바닥 투영)으로 인정할 최소값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Target")
+	float MinInputMagnitudeForTargetVelocity2D = 0.2f;
+	// 바닥 노멀 Z가 이 값보다 작으면 불안정한 바닥(0~1)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
+	float UnstableFloorZThreshold = 0.97f;
+	// 바닥 노멀 변화량이 이 값보다 작으면 불안정한 바닥(0~1)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
+	float UnstableFloorNormalContinuityThreshold = 0.95f;
+	// 안정한 바닥 이동일 때 유효 투영으로 인정할 최소값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
+	float MinProjectedMoveCm = 1.0f;	
+	// 이동 후 접지값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
+	float StickDist = 2.0f;
+	// 정면 충돌 비율이 이 값보다 크면 정면 충돌로 인정할 임계값(0~1)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Hit|Wall")
+	float WallHeadOnRatioThreshold = 0.65f;
+	// 충돌 노멀이 이 값보다 작으면 벽으로 인정할 임계값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Hit|Wall")
+	float WallNormalZMax = 0.2f;
+	// 충돌 노멀 방향으로 파고드는 정도가 이 값보다 크면 벽 충돌로 인정할 임계값 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Hit|Wall")
+	float MinIntoWallSpeed = 200.0f;
+	// 바닥 충돌 시 노멀 튐으로 속도 껶임을 방지할 회전 한계값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Hit|Ground")
+	float MaxTurnDeg = 25.0f;
+	// 벽 충돌 시 파고드는 성분 감쇠값(1이면 성분 완전 제거, 0이면 유지)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Hit|Wall")
+	float WallNormalKill = 1.0f;
+	// 벽 충돌 시 접선 성분 감쇠값(1이면 성분 완전 제거, 0이면 유지)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Hit|Wall")
+	float MaxTangentialKill = 0.45f;
+	// 벽 충돌 시 이탈 상태가 아닐 시 추가 감쇠값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Hit|Wall")
+	float WallSlideDamping = 12.0f;
+	// 경사면 접선 감쇠 성분 감쇠값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Slope")
+	float LateralDamping = 10.0f;
+	// 폭발 방지 시 벽에 파고드는 정도가 이 값보다 크면 동기화할 임계값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Wall")
+	float MinPressWallAlphaForConstrainedFrame = 0.05f;
+	// 동기화 시 미세하게 움직인 프레임 방지값 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Wall")
+	float MinActualSpeedForSync = 5.0f;
+	// 동기화 시 현재 속도를 얼만큼 보간할지 보간값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Move|Wall")
+	float ConstrainedVelocitySyncAlpha = 0.35;
+	
+	/******************미끄러짐*******************/
 	// 마찰력
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground|Friction")
 	float GroundFriction = 1500.0f;
 	// 공기 저항력
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Air|Friction")
 	float AirFriction = 5000.0f;
-	
-	/******************미끄러짐*******************/
 	// 오를 수 있는 경사면 각도
 	// MaxSlopeAngle=Cos(MaxSlopeAngle): 0도=1, 30도=0.866, 45도=0.707, 60도=0.5, 90도=0
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
@@ -253,17 +265,17 @@ private:
 	FVector LastFloorNormal = FVector::UpVector; // 이전 프레임 바닥 노멀
 	FVector CachedFloorNormal = FVector::UpVector; // 바닥 노멀 캐싱
 	
-	// 이번 프레임에 ApplySlopeSlide가 Velocity에 실제로 가속을 적용했는지
-	bool bSlopeSlideAppliedThisFrame = false;
-	FVector PendingSlopeSlideAccel2D = FVector::ZeroVector;
-	FVector LastActualDelta = FVector::UpVector;
-	float CachedSlopeAmount = 0.0f;
+	/********************이동********************/
+	FVector LastActualDelta = FVector::UpVector; // Move함수 실제 이동량 기반 동기화용 변수
 	
 	/******************미끄러짐*******************/
 	bool bOnUnwalkableSlope = false; // 미끄리절 경사면 플래그
 	FVector UnwalkableNormal = FVector::UpVector; // 미끄러질 경사면 바닥 노멀
 	bool bIsSlopeSliding = false; // 슬라이딩 플래그
 	bool bSlopeSlideThisFrame = false; // 이번 프레임에서 미끄러짐 상태 플래그
+	bool bSlopeSlideAppliedThisFrame = false; // 이번 프레임에 슬라이드 가속을 했는지 플래그
+	FVector PendingSlopeSlideAccel2D = FVector::ZeroVector;
+	float CachedSlopeAmount = 0.0f;
 	
 	/********************점프********************/
 	bool bJumpHeld = false; // 점프가 입력 중인지 체크
