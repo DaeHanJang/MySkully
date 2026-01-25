@@ -13,11 +13,11 @@ class MYSKULLY_API UHealthComponent : public UActorComponent
 public:	
 	UHealthComponent();
 
-protected:
-	virtual void BeginPlay() override;
-	
 	FORCEINLINE float GetHealth() const { return Health; }
 	FORCEINLINE void SetHealth(float Value) { Health = Value; }
+	
+protected:
+	virtual void BeginPlay() override;
 
 public:
 	void LoseHealth(float Amount);

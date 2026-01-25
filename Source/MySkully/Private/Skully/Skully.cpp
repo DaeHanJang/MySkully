@@ -2,8 +2,10 @@
 
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
+#include "NavigationSystemTypes.h"
 #include "Camera/CameraComponent.h"
 #include "Components/ArrowComponent.h"
+#include "Components/PostProcessComponent.h"
 #include "Components/HealthComponent/HealthComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Skully/SkullyMovementComponent.h"
@@ -62,6 +64,11 @@ ASkully::ASkully()
 	Camera->SetupAttachment(CameraSpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = true;
 	
+	// 포스트 프로세싱 생성
+	PostProcessComponent = CreateDefaultSubobject<UPostProcessComponent>(TEXT("PostProcess"));
+	PostProcessComponent->SetupAttachment(Camera);
+	PostProcessComponent->BlendWeight(0.0f);
+	
 	// 무브먼트 컴포넌트 생성
 	MovementComponent = CreateDefaultSubobject<USkullyMovementComponent>(TEXT("MovementComponent"));
 	MovementComponent->UpdatedComponent = SphereComponent;
@@ -85,11 +92,12 @@ void ASkully::BeginPlay()
 	
 }
 
-void ASkully::OnDeath_Implementation()
+void ASkully::OnTakeDamage_Implementation()
 {
+	UE_LOG(LogTemp, Warning, TEXT("HP: %f"), HealthComponent->GetHealth());
 }
 
-void ASkully::OnTakeDamage_Implementation()
+void ASkully::OnDeath_Implementation()
 {
 }
 

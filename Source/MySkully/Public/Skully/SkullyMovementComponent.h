@@ -42,9 +42,9 @@ protected:
 	FVector GetDownhillDir(const FVector& FloorN); // 아래(중력) 방향을 바닥 평면에 투영(downhill)
 	
 	/******************미끄러짐*******************/
-	void ApplyUnwalkableSlide(float DeltaTime); // 걸을 수 없는 바닥 슬라이드 가속
-	bool ApplySlopeSlide(float DeltaTime); // 경사면 슬라이드
-	void ApplyFriction(float DeltaTime, float GroundedFriction); // 마찰 적용
+	void ApplyUnwalkableSlide(float DeltaTime); // 걸을 수 없는 경사면(가파른 경사면)에서 미끄러짐(굴러떨어짐)->Falling 상태지만 충돌 때문에 잘 안미끄러지는 상황 탈출
+	bool ApplySlopeSlide(float DeltaTime); // 걸을 수 있는 경사면(완만한 경사면)에서 입력이 없을 때 미끄러짐(굴러떨어짐)->슬라이딩 가속 변수 설정
+	void ApplyFriction(float DeltaTime); // 마찰 적용
 	
 	/*****************구르기 연출*****************/
 	void ApplyVisualRoll(const FVector& ActualDelta) const; // 입력 방향에 따라 메시 굴리기
@@ -183,40 +183,32 @@ protected:
 	// 미끄러짐 속력(최대 속력의 약 2배)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed|Slope")
 	float MaxSlopeSlideSpeed = 7500.0f;
-	
-	// 경사면 미끄러짐(굴러떨어짐) 중 적용할 마찰력(운동 마찰 느낌)
-	// 너무 크면 슬라이드가 죽고, 너무 작으면 얼음처럼 내려감
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Friction")
-	float SlidingFriction = 2.5f;
-	
-	// 정지 마찰을 각도대신 가속도 임계치로 모델링하기 위한 값
-	// 중력의 경사 성분(VectorPlaneProject(Gravity, FloorN)이 이 값보다 작으면 완전 정지 유지
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
-	float StaticFrictionAccel = 600.0f;
-	
-	// 슬라이드가 막 시작될 대(속도 거의 0) 한 프레임 멈칫하는 현상 방지용 최소 시작 속도
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
-	float MinSlopeSlideStartSpeed = 120.0f;
-	
-	// 엣지/경계에서 노멀이 튀어 슬라이드가 멈추는 것을 완화하기 위한 downhill 샘플 거리
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
+	// 걸을 수 없는 경사면(가파른 경사면)의 가속 스케일
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Slide")
+	float UnwalkableSlopeSlideScale = 1.8f;
+	// 걸을 수 없는 경사면(가파른 경사면)에서 보장되는 최소 가속 크기
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Slide")
+	float UnwalkableSlopeMinAcceleration = 2200.f;
+	// 다운힐 샘플링 거리
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Sample")
 	float DownhillSampleDistance = 10.0f;
-	
-	// 정지 상태에서 버틸 수 있는 경사각(정지 마찰)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
-	float StopSlopeAngle = 10.0f;
-	
-	// 경사면 미끄러짐 가속 스케일(1.0이면 중력의 경사 성분 그대로)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
-	float SlopeSlideScale = 1.8f;
-	
-	// 슬라이딩 중 속도 댐핑 계수(속도 비례 감쇠)
-	// 값이 클수록 빨리 감속되고 종단속도가 낮아짐
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope")
-	float SlideDamping = 0.2f;
-	
-	// 정지마찰계수
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Slope")
+	// 다운힐 샘플링 추가 라인트레이스 거리
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Sample")
+	float DownhillSampleLinTraceExtraDistance = 50.0f;
+	// 완만한 경사에서도 미끄러지게 만드는 감성 커브값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Slide")
+	float SlopeSlideCurveExponent = 0.25;
+	// 슬라이딩 최소 가속 크기 최소값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Slide")
+	float SlopeSlideMinAccelLow = 1600.0f;
+	// 슬라이딩 최소 가속 크기 최대값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Slide")
+	float SlopeSlideMinAccelHigh = 4200.0f;
+	// 슬라이딩 유지 가속도 임계값
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slope|Slide")
+	float SlopeSlideStopAccel = 600.0f;
+	// 정지 마찰 계수: 경사의 기울기가 이 값보다 크면 슬라이딩
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Slope|Slide")
 	float StaticFrictionMu = 0.25;
 	
 	/*****************구르기 연출*****************/
@@ -269,13 +261,13 @@ private:
 	FVector LastActualDelta = FVector::UpVector; // Move함수 실제 이동량 기반 동기화용 변수
 	
 	/******************미끄러짐*******************/
-	bool bOnUnwalkableSlope = false; // 미끄리절 경사면 플래그
-	FVector UnwalkableNormal = FVector::UpVector; // 미끄러질 경사면 바닥 노멀
-	bool bIsSlopeSliding = false; // 슬라이딩 플래그
-	bool bSlopeSlideThisFrame = false; // 이번 프레임에서 미끄러짐 상태 플래그
-	bool bSlopeSlideAppliedThisFrame = false; // 이번 프레임에 슬라이드 가속을 했는지 플래그
-	FVector PendingSlopeSlideAccel2D = FVector::ZeroVector;
-	float CachedSlopeAmount = 0.0f;
+	bool bOnUnwalkableSlope = false; // 걸을 수 없는 경사면(가파른 경사면) 플래그(=슬라이딩 플래그)->CheckGround에서 설정
+	FVector UnwalkableSlopeNormal = FVector::UpVector; // 걸을 수 없는 경사면(가파른 경사면)의 바닥 노멀->CheckGround에서 설정
+	bool bSlopeSlideState = false; // 슬라이딩 상태 플래그
+	bool bComputedSlopeSlide = false; // 이번 프레임에서 슬라이딩 가속 계산 플래그->ApplySlopeSlide함수 맨 끝에서 설정
+	bool bAppliedSlopeSlide = false; // 이번 프레임에 슬라이드 가속 사용 플래그->Move함수에서 실제 가속을 더 했는지
+	FVector PendingSlopeSlideAccel2D = FVector::ZeroVector; // 걸을 수 있는 경사면(완만한 경사면)에서의 가속값->Move에서 처리
+	float CachedSlopeAmount = 0.0f; // 이번 프레임 경사량 캐시->마찰/감쇠에 사용
 	
 	/********************점프********************/
 	bool bJumpHeld = false; // 점프가 입력 중인지 체크

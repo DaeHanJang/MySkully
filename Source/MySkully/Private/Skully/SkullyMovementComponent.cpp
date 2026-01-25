@@ -4,8 +4,7 @@
 
 namespace
 {
-	// 엣지/경계에서 CachedFloorNormal이 튀면서 슬라이드/투영이 0으로 붕괴할 수 있어, 
-	// 주변 바닥 높이를 샘플링해서 가장 아래로 향하는 downhill 방향을 구한다.
+	// 노멀이 튀어서 downhill 방향이 0으로 붕괴할 때 샘플링
 	bool TryGetDownhillDirFromSamples(UWorld* World, const FVector& Origin, float SampleDist, float TraceDown,
 	                                  AActor* IgnoreActor, FVector& OutDir)
 	{
@@ -21,15 +20,13 @@ namespace
 		}
 		Params.bTraceComplex = true;
 		Params.bReturnFaceIndex = true;
+		
+		float BaseZ = Origin.Z; // 기준값
+		float BestZ = BaseZ; // 결과값
+		FVector BestDir = FVector::ZeroVector; // 결과값 방향
 
-		// 기준 높이
-		float BaseZ = Origin.Z;
-		float BestZ = BaseZ;
-		FVector BestDir = FVector::ZeroVector;
-
-		const FVector Dirs[4] = {
-			FVector::ForwardVector, FVector::RightVector, -FVector::ForwardVector, -FVector::RightVector
-		};
+		// 샘플링 방향(전/우/후/좌)
+		const FVector Dirs[4] = { FVector::ForwardVector, FVector::RightVector, -FVector::ForwardVector, -FVector::RightVector };
 		for (const FVector& Dir : Dirs)
 		{
 			const FVector SampleStart = Origin + Dir * SampleDist;
@@ -76,7 +73,7 @@ void USkullyMovementComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 	}
 
 	PendingSlopeSlideAccel2D = FVector::ZeroVector;
-	bSlopeSlideThisFrame = false;
+	bComputedSlopeSlide = false;
 
 	/********************점프********************/
 	UpdateJumpBufferTimer(DeltaTime);
@@ -85,13 +82,9 @@ void USkullyMovementComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 	/********************중력********************/
 	ApplyGravity(DeltaTime);
 	/******************미끄러짐*******************/
-	ApplyUnwalkableSlide(DeltaTime); // 걸을 수 없는 바닥 슬라이드 가속
-	bSlopeSlideAppliedThisFrame = ApplySlopeSlide(DeltaTime); // 경사면에서 정지 시 미끄러짐(굴러떨어짐) 적용
-	const bool bFrictionAsSlide = bIsSlopeSliding == true || bSlopeSlideThisFrame == true || bSlopeSlideAppliedThisFrame == true;
-	const bool bNoInput = GetPendingInputVector().IsNearlyZero() == true;
-	const bool bSlope = CachedFloorNormal.Z < FlatGroundZThreshold;
-	const bool bTreatAsSlideFriction = bFrictionAsSlide == true || (MovementMode == ESkullyMovementMode::Grounded && bNoInput == true && bSlope == true);
-	ApplyFriction(DeltaTime, bTreatAsSlideFriction ? SlidingFriction : GroundFriction); // 마찰 적용(XY 감속(XY 속도를 줄여 미끄러짐/관성을 제어))
+	ApplyUnwalkableSlide(DeltaTime);
+	bAppliedSlopeSlide = ApplySlopeSlide(DeltaTime);
+	ApplyFriction(DeltaTime);
 	/********************이동********************/
 	Move(DeltaTime);
 	/******************바닥 감지******************/
@@ -117,9 +110,9 @@ void USkullyMovementComponent::ApplyGravity(float DeltaTime)
 			const bool bSlope = CachedFloorNormal.Z < FlatGroundZThreshold; // 경사면 일 경우
 			const bool bNoInput = GetPendingInputVector().IsNearlyZero() == true; // 입력이 없을 경우
 			// 슬라이딩 중인 경우
-			const bool bSlidingLike = bIsSlopeSliding == true || 
-				                      bSlopeSlideThisFrame == true || 
-				                      bSlopeSlideAppliedThisFrame == true;
+			const bool bSlidingLike = bSlopeSlideState == true || 
+				                      bComputedSlopeSlide == true || 
+				                      bAppliedSlopeSlide == true;
 
 			// 평지
 			if (bSlope == false)
@@ -148,31 +141,26 @@ void USkullyMovementComponent::ApplyUnwalkableSlide(float DeltaTime)
 	{
 		return;
 	}
-
-	// 너무 가파른 면의 노멀
-	const FVector N = UnwalkableNormal.GetSafeNormal();
-	if (N.IsNearlyZero() == true)
+	
+	const FVector UnwalkableNormal = UnwalkableSlopeNormal.GetSafeNormal();
+	if (UnwalkableNormal.IsNearlyZero() == true)
 	{
 		return;
 	}
 
-	// 중력을 면에 투영 -> 면을 따라 아래로 가는 방향
+	// 방향 추출
 	const FVector GravityVector(0.0f, 0.0f, -Gravity);
-	FVector AlongPlane = FVector::VectorPlaneProject(GravityVector, N);
-
-	// 2D로만 굴리고 싶으면 Z 제거
-	AlongPlane.Z = 0.0f;
-
-	const FVector SlideDir = AlongPlane.GetSafeNormal();
+	FVector AlongPlane = FVector::VectorPlaneProject(GravityVector, UnwalkableNormal); // 중력 벡터를 걸을 수 없는 경사면(가파른 경사면) 노멀에 투영
+	AlongPlane.Z = 0.0f; // Z 성분을 제거->Z 성분 누적 방지->면을 따라 옆으로 미끄러뜨림(굴러뜨림)
+	const FVector SlideDir = AlongPlane.GetSafeNormal(); // 최종 방향 추출
 	if (SlideDir.IsNearlyZero() == true)
 	{
 		return;
 	}
 
-	// 자석을 끊기 위해 최소 가속을 강하게
-	const float MinAccel = 2200.0f;
-	float AccelMag = Gravity * (1.0f - N.Z) * SlopeSlideScale;
-	AccelMag = FMath::Max(AccelMag, MinAccel);
+	// 크기 추출
+	float AccelMag = Gravity * (1.0f - UnwalkableNormal.Z) * UnwalkableSlopeSlideScale; // 경사량 기반 가속 크기
+	AccelMag = FMath::Max(AccelMag, UnwalkableSlopeMinAcceleration); // 최소 가속 크기 보장
 
 	Velocity.X += SlideDir.X * AccelMag * DeltaTime;
 	Velocity.Y += SlideDir.Y * AccelMag * DeltaTime;
@@ -181,149 +169,125 @@ void USkullyMovementComponent::ApplyUnwalkableSlide(float DeltaTime)
 bool USkullyMovementComponent::ApplySlopeSlide(float DeltaTime)
 {
 	CachedSlopeAmount = 0.0f;
-
-	// 기본 전제: Grounded + 입력 없음일 때만 정지 후 굴러떨어짐을 평가한다.
+	
+	// Grounded 상태가 아니면
 	if (MovementMode != ESkullyMovementMode::Grounded)
 	{
-		bIsSlopeSliding = false;
+		bSlopeSlideState = false;
 		return false;
 	}
 
-	// 입력이 있으면(특히 사이드 이동 포함) 정지 슬라이드(미끄러짐) 로직을 끈다
+	// 입력이 있으면
 	const FVector PendingInput = GetPendingInputVector();
 	const float InputDeadZone = 0.1f;
 	const bool bHasInputNow = PendingInput.SizeSquared() > FMath::Square(InputDeadZone);
-
 	if (bHasInputNow == true)
 	{
-		bIsSlopeSliding = false; // 슬라이드 상태도 끊어줌(잔상 방지)
+		bSlopeSlideState = false;
 		PendingSlopeSlideAccel2D = FVector::ZeroVector;
-		bSlopeSlideThisFrame = false;
+		bComputedSlopeSlide = false;
 		return false;
 	}
 
-	FVector UseNormal = CachedFloorNormal;
-	// Grounded이고 바닥 히트가 유효하면 슬라이드 계산용 노멀은 히트 노멀 우선
-	if (MovementMode == ESkullyMovementMode::Grounded && CurrentFloorHit.bBlockingHit == true)
-	{
-		UseNormal = CurrentFloorHit.ImpactNormal;
-	}
-	// 불안정 바닥에서는 CachedFloorNormal이 튀는 프레임이 있으므로, 슬라이드에 사용할 노멀을 안정화
-	// 기존의 엣지/불안정 처리만 보강용으로 유지
-	const float NormalDot = FVector::DotProduct(CachedFloorNormal, LastFloorNormal);
-	const bool bUnstableForSlide = (CachedFloorNormal.Z < UnstableFloorZThreshold) || (NormalDot < UnstableFloorNormalContinuityThreshold);
+	// 현재 바닥 노멀: CurrentFloorHit.ImpactNormal 우선->조작/판정에서는 실제 면 노멀이 유리
+	FVector UseNormal = (CurrentFloorHit.bBlockingHit == true ? CurrentFloorHit.ImpactNormal : CachedFloorNormal).GetSafeNormal();
+	// 현재 바닥 노멀과 이전 프레임 바닥 노멀의 변화량
+	const float NormalDot = FVector::DotProduct(UseNormal, LastFloorNormal);
+	// 불안정한 경사면 플래그: 바닥 노멀이 가파르거나 이전 프레임 바닥 노멀과의 변화량이 클 경우
+	const bool bUnstableForSlide = (UseNormal.Z < UnstableFloorZThreshold) || (NormalDot < UnstableFloorNormalContinuityThreshold);
 	if (bUnstableForSlide == true)
 	{
 		UseNormal = LastFloorNormal;
 	}
 	UseNormal = UseNormal.GetSafeNormal();
 
-	// 중력의 바닥 평면 성분(경사 아래 가속)
+	// 중력 벡터를 바닥 노멀에 투영
 	const FVector GravityVector(0.0f, 0.0f, -Gravity);
 	FVector AlongPlane = FVector::VectorPlaneProject(GravityVector, UseNormal);
-
-	// 엣지/경계 보강(노멀이 애매해서 방향(AlongPlane)이 거의 0이면 주변 샘플로 downhill 방향을 추정)
-	const float MinSlopeForSamplesZ = 0.98f;
+	
+	// 투영 결과가 0일 경우(엣지/경계) 샘플링
 	if (AlongPlane.SizeSquared() < KINDA_SMALL_NUMBER)
 	{
 		FVector DownhillDir;
-		if (UseNormal.Z < MinSlopeForSamplesZ &&
+		if (UseNormal.Z < FlatGroundZThreshold &&
 			TryGetDownhillDirFromSamples(GetWorld(), UpdatedComponent->GetComponentLocation(), DownhillSampleDistance,
-			                             GroundLineTraceDistance + 50.0f, GetOwner(), DownhillDir))
+			                             GroundLineTraceDistance + DownhillSampleLinTraceExtraDistance, GetOwner(), DownhillDir))
 		{
-			// 방향만 필요하므로 크기는 적당히
-			AlongPlane = DownhillDir * (Gravity * (1.0f - UseNormal.Z));
+			AlongPlane = DownhillDir * (Gravity * (1.0f - UseNormal.Z)); // 샘플링 방향 * 경사량 기반 크기
 		}
 		else
 		{
-			bIsSlopeSliding = false;
+			bSlopeSlideState = false;
 			return false;
 		}
 	}
 
-	// 슬라이드 방향
+	// 방향 확정
 	FVector SlideDir = AlongPlane.GetSafeNormal();
 	if (SlideDir.IsNearlyZero() == true)
 	{
-		bIsSlopeSliding = false;
+		bSlopeSlideState = false;
 		return false;
 	}
 
-	// 경사량: 0(평지)~1(수직)
-	const float SlopeAmount = FMath::Clamp(1.0f - UseNormal.Z, 0.0f, 1.0f);
+	// 크기 확정
+	const float SlopeAmount = FMath::Clamp(1.0f - UseNormal.Z, 0.0f, 1.0f); // 경사 비율: 0(평지)~1(수직)
 	CachedSlopeAmount = SlopeAmount;
-	// 커브: 지수 < 1이면 완만한 경사도 좀 더 잘 미끄러짐
-	const float Curve = FMath::Pow(SlopeAmount, 0.25f);
-	// 가속 크기(게임 감성)
-	float SlideAccelMag = Gravity * Curve * SlopeSlideScale;
-	// 최소 가속 보장(너무 느린 체감 방지)
-	const float MinSlideAccel = FMath::Lerp(1600.0f, 4200.0f, SlopeAmount);
-	SlideAccelMag = FMath::Max(SlideAccelMag, MinSlideAccel);
-	// 너무 작으면 슬라이드 불가(안전)
+	const float Curve = FMath::Pow(SlopeAmount, SlopeSlideCurveExponent); // 완만한 경사에서도 미끄러지게 만드는 감성 커브
+	float SlideAccelMag = Gravity * Curve * UnwalkableSlopeSlideScale; // 가속 크기
+	const float MinSlideAccel = FMath::Lerp(SlopeSlideMinAccelLow, SlopeSlideMinAccelHigh, SlopeAmount); // 경사량에 따라 최소 가속 크기 설정
+	SlideAccelMag = FMath::Max(SlideAccelMag, MinSlideAccel); // 최소 가속 크기 보장
 	if (SlideAccelMag <= KINDA_SMALL_NUMBER)
 	{
-		bIsSlopeSliding = false;
+		bSlopeSlideState = false;
 		return false;
 	}
 
-	// 슬라이딩 종료(히스테리시스): 슬라이딩 중일 때 너무 약해지면 종료
-	const float StopThreshold = StaticFrictionAccel * 0.25f;
-	if (bIsSlopeSliding == true && SlideAccelMag < StopThreshold)
+	// 슬라이딩 종료 히스테리시스: 슬라이딩 중일 때 너무 약해지면 종료
+	const float StopThreshold = SlopeSlideStopAccel * 0.25f;
+	if (bSlopeSlideState == true && SlideAccelMag < StopThreshold)
 	{
-		bIsSlopeSliding = false;
+		bSlopeSlideState = false;
 		return false;
 	}
 
+	// 슬라이딩 시작 판정
 	const float CosTheta = FMath::Clamp(UseNormal.Z, 0.0f, 1.0f);
 	const float SinTheta = FMath::Sqrt(FMath::Max(0.0f, 1.0f - CosTheta * CosTheta));
-	const float TanTheta = (CosTheta > KINDA_SMALL_NUMBER) ? (SinTheta / CosTheta) : BIG_NUMBER;
-
-	const float StaticMu = StaticFrictionMu;
-	const bool bShouldStartSliding = TanTheta > StaticMu;
-
-	// 시작(Static friction): 아직 슬라이딩 중이 아니면 정지 마찰을 이겨야 시작
-	if (bIsSlopeSliding == false)
+	const float TanTheta = CosTheta > KINDA_SMALL_NUMBER ? SinTheta / CosTheta : BIG_NUMBER; // 경사 기울기
+	const bool bShouldStartSliding = TanTheta > StaticFrictionMu; // 정지 마찰 계수보다 클 때 슬라이딩 시작
+	if (bSlopeSlideState == false && bShouldStartSliding == false)
 	{
-		if (bShouldStartSliding == false)
-		{
-			return false;
-		}
-
-		bIsSlopeSliding = true;
+		return false;
 	}
 
-	// 슬라이드 가속을 Move()에서 더할 수 있도록 저장
 	PendingSlopeSlideAccel2D = FVector(SlideDir.X, SlideDir.Y, 0.0f) * SlideAccelMag;
-	bSlopeSlideThisFrame = true;
+	bSlopeSlideState = true;
+	bComputedSlopeSlide = true;
 	return true;
 }
 
-void USkullyMovementComponent::ApplyFriction(float DeltaTime, float GroundedFriction)
+void USkullyMovementComponent::ApplyFriction(float DeltaTime)
 {
-	const bool bGrounded = MovementMode == ESkullyMovementMode::Grounded;
-	// 슬라이드 상태 판단(이번 프레임 슬라이드 가속이 있거나, 슬라이딩 플래그가 켜진 경우)
-	const bool bSlidingNow = bGrounded == true && (bIsSlopeSliding == true || bSlopeSlideThisFrame == true ||
-		bSlopeSlideAppliedThisFrame == true);
-
 	FVector HorizontalVelocity(Velocity.X, Velocity.Y, 0.0f);
 	if (HorizontalVelocity.IsNearlyZero() == true)
 	{
 		return;
 	}
 
+	// 슬라이딩 상태 플래그: 슬라이딩 상태이거나 이번 프레임에서 슬라이드 가속 계산을 했거나 슬라이드 가속이 적용되었으면
+	const bool bSlidingNow = MovementMode == ESkullyMovementMode::Grounded == true && (bSlopeSlideState == true || bComputedSlopeSlide == true || bAppliedSlopeSlide == true);
 	if (bSlidingNow == true)
 	{
-		// 슬라이딩은 속도 비례 감쇠(곱 감쇠)가 체감이 좋음
-		// SlidingFriction을 초당 감쇠율처럼 사용
-		const float Damping = FMath::Lerp(0.06f, 0.02f, CachedSlopeAmount);
-		const float Factor = FMath::Exp(-Damping * DeltaTime);
+		const float Damping = FMath::Lerp(0.06f, 0.02f, CachedSlopeAmount); // 이번 프레임 경사량에 따라 보간
+		const float Factor = FMath::Exp(-Damping * DeltaTime); // 지수 감쇠: 속도에 비례해서 감쇠
 		HorizontalVelocity *= Factor;
 	}
 	else
 	{
-		// 일반 지면/공중 마찰
-		const float Friction = bGrounded ? GroundedFriction : AirFriction;
-		const FVector Decel = -HorizontalVelocity.GetSafeNormal() * Friction * DeltaTime;
+		const float Friction = MovementMode == ESkullyMovementMode::Grounded ? GroundFriction : AirFriction;
+		const FVector Decel = -HorizontalVelocity.GetSafeNormal() * Friction * DeltaTime; // 선형 감쇠
+		// 감속이 현재 속도보다 클 경우->역방향으로 튕기는 것 방지
 		if (Decel.SizeSquared() >= HorizontalVelocity.SizeSquared())
 		{
 			HorizontalVelocity = FVector::ZeroVector;
@@ -350,7 +314,7 @@ void USkullyMovementComponent::Move(float DeltaTime)
 	/*************** 2. 변수 초기화 ***************/
 	// 걸을 수 있는 노멀의 Z
 	const float WalkableZ = FMath::Cos(FMath::DegreesToRadians(MaxSlopeAngle)); 
-	// 현재 바닥 노멀: CurrentFloorHit.ImpactNormal 우선->조작 제약에서는 실제 면 노멀이 유리
+	// 현재 바닥 노멀: CurrentFloorHit.ImpactNormal 우선->조작/판정에서는 실제 면 노멀이 유리
 	const FVector GroundFloorNormal = (CurrentFloorHit.bBlockingHit == true ? CurrentFloorHit.ImpactNormal : CachedFloorNormal).GetSafeNormal();
 	// Grounded 상태에서 가파른 경사인지->이동 제약
 	const bool bTooSteepNow = MovementMode == ESkullyMovementMode::Grounded && GroundFloorNormal.Z < WalkableZ;
@@ -418,12 +382,12 @@ void USkullyMovementComponent::Move(float DeltaTime)
 		CurrentVelocity2D = FMath::VInterpConstantTo(CurrentVelocity2D, TargetVelocity2D, DeltaTime, Acceleration);
 	}
 	// 4-2. 슬라이드 가속(미끄러지는 중일 때)
-	if (MovementMode == ESkullyMovementMode::Grounded && bSlopeSlideThisFrame == true)
+	if (MovementMode == ESkullyMovementMode::Grounded && bComputedSlopeSlide == true)
 	{
 		CurrentVelocity2D += PendingSlopeSlideAccel2D * DeltaTime;
 	}
 	// 4-3. 속도 상한
-	const bool bClampAsSlope = MovementMode == ESkullyMovementMode::Grounded && bSlopeSlideThisFrame == true;
+	const bool bClampAsSlope = MovementMode == ESkullyMovementMode::Grounded && bComputedSlopeSlide == true;
 	CurrentVelocity2D = CurrentVelocity2D.GetClampedToMaxSize(bClampAsSlope ? MaxSlopeSlideSpeed : MaxSpeed);
 	Velocity.X = CurrentVelocity2D.X;
 	Velocity.Y = CurrentVelocity2D.Y;
@@ -662,7 +626,7 @@ void USkullyMovementComponent::Move(float DeltaTime)
 			if (MovementMode == ESkullyMovementMode::Grounded)
 			{
 				// 경사 슬라이드로 가속이 들어가 프레임에서는 이동이 2번 먹어서 거리 폭발이 생길 수 있음
-				if (bSlopeSlideAppliedThisFrame == false)
+				if (bAppliedSlopeSlide == false)
 				{
 					// 이탈 시 재투영을 해버리면 벽에서 빠지려는 순간 다시 붙는 느낌이 날 수 있음
 					if (bTryingToLeaveWall == false)
@@ -705,7 +669,7 @@ void USkullyMovementComponent::Move(float DeltaTime)
 	/*************** 9. 경사면 접선 감쇠 ***************/
 	// 경사면 감쇠 플래그: Grounded 상태 + 입력 존재 + 경사 미끄러짐 상태 + 벽 충돌이 아님 + 바닥 충돌이 아님
 	const bool bApplySlopeLateralDamping = MovementMode == ESkullyMovementMode::Grounded && bHasInput == false && 
-										   (bIsSlopeSliding == true || bSlopeSlideThisFrame == true) && 
+										   (bSlopeSlideState == true || bComputedSlopeSlide == true) && 
 										   bHitWallThisFrame == false && bHitFloorBumpThisFrame == false;
 	if (bApplySlopeLateralDamping == true)
 	{
@@ -819,7 +783,7 @@ void USkullyMovementComponent::CheckGround(float DeltaTime)
 			{
 				LastFloorNormal = FVector::UpVector;
 				CachedFloorNormal = FVector::UpVector;
-				bIsSlopeSliding = false; // 미끄러짐 상태 끔
+				bSlopeSlideState = false; // 미끄러짐 상태 끔
 				
 				// 평지 착지 스냅
 				if (MovementMode == ESkullyMovementMode::Falling && Velocity.Z <= 0.0f)
@@ -845,9 +809,9 @@ void USkullyMovementComponent::CheckGround(float DeltaTime)
 		if (HitZ > MinSlopeZForSlide)
 		{
 			bOnUnwalkableSlope = true; // ApplyUnwalkableSlide 함수를 탈 수 있도록 설정
-			UnwalkableNormal = Hit.ImpactNormal.GetSafeNormal(); // ApplyUnwalkableSlide 함수에서 사용할 바닥 노멀
+			UnwalkableSlopeNormal = Hit.ImpactNormal.GetSafeNormal(); // ApplyUnwalkableSlide 함수에서 사용할 바닥 노멀
 			LastFloorNormal = CachedFloorNormal;
-			CachedFloorNormal = UnwalkableNormal;
+			CachedFloorNormal = UnwalkableSlopeNormal;
 			MovementMode = ESkullyMovementMode::Falling;
 			
 			return;
@@ -1065,7 +1029,7 @@ void USkullyMovementComponent::TryConsumeJump()
 		Velocity.Z = JumpSpeed;
 		MovementMode = ESkullyMovementMode::Falling;
 		// 슬라이드/지면 관련 상태 정리
-		bIsSlopeSliding = false;
+		bSlopeSlideState = false;
 		// 버퍼 소비
 		bWantsToJump = false;
 		JumpBufferRemaining = 0.0f;
@@ -1102,7 +1066,7 @@ bool USkullyMovementComponent::TryStartJumpFromBuffer()
 	Velocity.Z = JumpSpeed;
 	MovementMode = ESkullyMovementMode::Falling;
 	// 슬라이드/지면 관련 상태 정리
-	bIsSlopeSliding = false;
+	bSlopeSlideState = false;
 	// 버퍼 소비
 	bWantsToJump = false;
 	JumpBufferRemaining = 0.0f;

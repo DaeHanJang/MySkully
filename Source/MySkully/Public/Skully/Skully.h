@@ -6,6 +6,7 @@
 #include "GameFramework/Pawn.h"
 #include "Skully.generated.h"
 
+class UPostProcessComponent;
 class UHealthComponent;
 class UArrowComponent;
 class UCameraComponent;
@@ -31,8 +32,8 @@ protected:
 	virtual void BeginPlay() override;
 	
 	// Health Interface
-	virtual void OnDeath_Implementation() override;
 	virtual void OnTakeDamage_Implementation() override;
+	virtual void OnDeath_Implementation() override;
 
 public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -61,6 +62,8 @@ private:
 	USpringArmComponent* CameraSpringArm;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
 	UCameraComponent* Camera;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
+	UPostProcessComponent* PostProcessComponent;
 	
 	// Movement
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
