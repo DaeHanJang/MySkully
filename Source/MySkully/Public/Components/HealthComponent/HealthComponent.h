@@ -21,8 +21,13 @@ protected:
 
 public:
 	void LoseHealth(float Amount);
+	void GainHealth();
 	
 private:
-	UPROPERTY(EditDefaultsOnly, Category="Health")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Health", meta = (AllowPrivateAccess="true"))
 	float Health = 100.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Health", meta = (AllowPrivateAccess="true"))
+	float HealAmount = 1.0f;
+	
 };

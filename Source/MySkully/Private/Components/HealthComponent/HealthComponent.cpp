@@ -17,6 +17,7 @@ void UHealthComponent::BeginPlay()
 void UHealthComponent::LoseHealth(float Amount)
 {
 	Health -= Amount;
+	Health = FMath::Max(Health, 0.0f);
 	
 	if (GetOwner()->Implements<UHealthInterface>())
 	{
@@ -25,12 +26,21 @@ void UHealthComponent::LoseHealth(float Amount)
 	
 	if (Health <= 0.0f)
 	{
-		Health = 0.0f;
-		
 		if (GetOwner()->Implements<UHealthInterface>())
 		{
 			IHealthInterface::Execute_OnDeath(GetOwner());
 		}
+	}
+}
+
+void UHealthComponent::GainHealth()
+{
+	Health += HealAmount;
+	Health = FMath::Min(Health, 100.0f);
+
+	if (GetOwner()->Implements<UHealthInterface>())
+	{
+		IHealthInterface::Execute_OnTakeHealth(GetOwner());
 	}
 }
 

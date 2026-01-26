@@ -22,4 +22,8 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category="Health")
 	void OnDeath();
 	virtual void OnDeath_Implementation() = 0;
+	
+	UFUNCTION(BlueprintNativeEvent, Category="Health")
+	void OnTakeHealth();
+	virtual void OnTakeHealth_Implementation() = 0;
 };

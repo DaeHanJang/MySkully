@@ -4,6 +4,8 @@
 #include "GameFramework/PawnMovementComponent.h"
 #include "SkullyMovementComponent.generated.h"
 
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnMovementChanged, float DeltaTime, float Speed, FVector Dir);
+
 // 이동 상태
 UENUM(BlueprintType)
 enum class ESkullyMovementMode : uint8
@@ -21,6 +23,8 @@ public:
 	USkullyMovementComponent();
 	
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	
+	FOnMovementChanged OnMovementChanged;
 	
 	/********************점프********************/
 	void RequestJump(); // 점프 요청
@@ -56,9 +60,14 @@ protected:
 	void UpdateJumpBufferTimer(float DeltaTime); // 점프 버퍼 대기 시간 갱신
 	
 	/******************출력 변수******************/
-	void UpdateMotionState(); // 출력 변수 갱신
+	void UpdateMovementState(float DeltaTime); // 출력 변수 갱신
 	
 public:
+	/********************이동********************/
+	// 최대 속력
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
+	float MaxSpeed = 4000.0f;
+	
 	/*****************구르기 연출*****************/
 	// 회전시킬 메시 컴포넌트
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Roll")
@@ -108,12 +117,9 @@ protected:
 	float StickZ = 12.0f;
 	
 	/********************이동********************/
-	// 최대 속력
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
-	float MaxSpeed = 3500.0f;
 	// 가속값
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
-	float Acceleration = 8000.0f;
+	float Acceleration = 5000.0f;
 	// 목표 속도 생성 시 접선 성분 기본 감쇠값(0~1)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move|Target")
 	float UphillPushStartThreshold = 0.6f;
@@ -223,11 +229,11 @@ protected:
 	/********************점프********************/
 	// 점프 속도
 	UPROPERTY(EditAnywhere, Category="Jump")
-	float JumpSpeed = 2000.0f;
+	float JumpSpeed = 2500.0f;
 	// 가변 점프 스케일(0~1)
 	// ex) 0.7=상송 속도를 30% 감소
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Jump|Input")
-	float JumpReleaseVelocityScale = 0.7f;
+	float JumpReleaseVelocityScale = 0.5f;
 	// 점프 바닥 감지 무시 시간
 	// 점프 시작 혹은 다음 프레임에서는 지면과 가깝기 때문에 버그 발생이 높음 
 	UPROPERTY(EditAnywhere, Category="Jump|Input")
@@ -247,7 +253,7 @@ protected:
 	float CurrentSpeed2D = 0.0f;
 	// 현재 이동 방향
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
-	FVector CurrentMoveDir2D = FVector::ZeroVector;
+	FVector CurrentDir2D = FVector::ZeroVector;
 	
 private:
 	ESkullyMovementMode MovementMode = ESkullyMovementMode::Falling; // 움직임 상태값

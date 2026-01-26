@@ -92,7 +92,7 @@ void USkullyMovementComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 	/*****************구르기 연출*****************/
 	ApplyVisualRoll(LastActualDelta);
 	/******************출력 변수******************/
-	UpdateMotionState();
+	UpdateMovementState(DeltaTime);
 }
 
 void USkullyMovementComponent::ApplyGravity(float DeltaTime)
@@ -928,12 +928,13 @@ bool USkullyMovementComponent::TryConfirmGroundByLineTrace(float WalkableZ)
 	return true;
 }
 
-void USkullyMovementComponent::UpdateMotionState()
+void USkullyMovementComponent::UpdateMovementState(float DeltaTime)
 {
 	const FVector Velocity2D(Velocity.X, Velocity.Y, 0.0f);
 	CurrentSpeed2D = Velocity2D.Size();
-
-	CurrentMoveDir2D = (CurrentSpeed2D > KINDA_SMALL_NUMBER) ? Velocity2D / CurrentSpeed2D : FVector::ZeroVector;
+	CurrentDir2D = (CurrentSpeed2D > KINDA_SMALL_NUMBER) ? Velocity2D / CurrentSpeed2D : FVector::ZeroVector;
+	
+	OnMovementChanged.Broadcast(DeltaTime, CurrentSpeed2D, CurrentDir2D);
 }
 
 void USkullyMovementComponent::ApplyVisualRoll(const FVector& ActualDelta) const
