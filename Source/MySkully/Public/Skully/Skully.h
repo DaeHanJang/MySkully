@@ -1,19 +1,16 @@
-/*
- * 파일명: Skully.h
- * 생성일: 2026-01-08
- * 수정일: 2026-01-09
- * 내용: 플레이어 객체 Skully
- */
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Components/SphereComponent.h"
+#include "Components/HealthComponent/HealthInterface.h"
 #include "GameFramework/Pawn.h"
 #include "Skully.generated.h"
 
+class USkullyCameraComponent;
+class UBoxComponent;
+class UPostProcessComponent;
+class UHealthComponent;
 class UArrowComponent;
-class UCameraComponent;
 class USpringArmComponent;
 class USkullyMovementComponent;
 class USphereComponent;
@@ -25,20 +22,53 @@ class UInputAction;
 struct FInputActionValue;
 
 UCLASS()
-class MYSKULLY_API ASkully : public APawn
+class MYSKULLY_API ASkully : public APawn, public IHealthInterface
 {
 	GENERATED_BODY()
 
 public:
 	ASkully();
 
+	FORCEINLINE bool GetOnClayMound() const { return bOnClayMound; }
+	FORCEINLINE void SetOnClayMound(bool Value) { bOnClayMound = Value; }
+	
 protected:
 	virtual void BeginPlay() override;
+	
+	// Health Interface
+	virtual void OnTakeDamage_Implementation() override;
+	virtual void OnDeath_Implementation() override;
+	virtual void OnTakeHealth_Implementation() override;
 
-public:	
-	virtual void Tick(float DeltaTime) override;
+	// Camera Box Component
+	UFUNCTION()
+	virtual void OnCameraBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, 
+								   int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	UFUNCTION()
+	void OnCameraBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+	
+public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+protected:
+	// Camera
+	UFUNCTION()
+	void UpdateFOVBySpeed(float DeltaTime, float Speed, FVector Dir);
+	
+	// Skully Input Method
+	void Move(const FInputActionValue& Value);
+	void Look(const FInputActionValue& Value);
+	void Jump(const FInputActionValue& Value);
+	void StopJump(const FInputActionValue& Value);
+	void Heal(const FInputActionValue& Value);
+	void StopHeal(const FInputActionValue& Value);
+	
+public:
+	// Initialize
+	void InitState();
+	// Set Skully_clay Scale
+	void SetSkully_ClayScale(float Scale);
+	
 private:
 	// Collision
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess="true"))
@@ -47,6 +77,10 @@ private:
 	// Arrow
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess="true"))
 	UArrowComponent* ArrowComponent;
+	
+	// Mesh Pivot
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Pivot", meta = (AllowPrivateAccess="true"))
+	USceneComponent* MeshPivot;
 	
 	// Mesh
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh", meta = (AllowPrivateAccess="true"))
@@ -58,25 +92,33 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
 	USpringArmComponent* CameraSpringArm;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
-	UCameraComponent* Camera;
+	USkullyCameraComponent* Camera;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
+	UBoxComponent* CameraBoxComponent;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
+	UPostProcessComponent* PostProcessComponent;
 	
 	// Movement
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
-	USkullyMovementComponent* MovementComponent;
+	USkullyMovementComponent* SkullyMovementComponent;
+	
+	// Health
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
+	UHealthComponent* HealthComponent;
 	
 	// Input
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
 	UInputMappingContext* InputMappingContext;
-	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
 	UInputAction* JumpAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
 	UInputAction* MoveAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
 	UInputAction* LookAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
+	UInputAction* ClayMoundAction;
 
-protected:
-	void Move(const FInputActionValue& Value);
-	void Look(const FInputActionValue& Value);
-	
+private:
+	bool bOnClayMound = false; // 웅덩이 상호작용 플래그
+	FTimerHandle HealTimerHandle; // 힐 타이머 핸들
 };
