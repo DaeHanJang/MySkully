@@ -12,6 +12,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Skully/SkullyCameraComponent.h"
 #include "Skully/SkullyMovementComponent.h"
+#include "Skully/SkullyTrailComponent.h"
+#include "VT/RuntimeVirtualTexture.h"
 
 ASkully::ASkully()
 {
@@ -94,6 +96,24 @@ ASkully::ASkully()
 	SkullyMovementComponent = CreateDefaultSubobject<USkullyMovementComponent>(TEXT("MovementComponent"));
 	SkullyMovementComponent->UpdatedComponent = SphereComponent;
 	SkullyMovementComponent->VisualComponent = MeshPivot;
+	
+	// 트레일 컴포넌트 생성
+	SkullyTrailComponent = CreateDefaultSubobject<USkullyTrailComponent>(TEXT("TrailComponent"));
+	static ConstructorHelpers::FObjectFinder<URuntimeVirtualTexture> TargetRTVAsset(TEXT("/Game/RVT/RVT_Trail.RVT_Trail"));
+	if (TargetRTVAsset.Succeeded() == true)
+	{
+		SkullyTrailComponent->TargetRVT = TargetRTVAsset.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> StampMeshAsset(TEXT("/Engine/BasicShapes/Plane.Plane"));;
+	if (StampMeshAsset.Succeeded() == true)
+	{
+		SkullyTrailComponent->StampMesh = StampMeshAsset.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> StampMaterialAsset(TEXT("/Game/Material/Trail/M_TrailStamp.M_TrailStamp"));
+	if (StampMaterialAsset.Succeeded() == true)
+	{
+		SkullyTrailComponent->StampMaterial = StampMaterialAsset.Object;
+	}
 	
 	// 헬스 컴포넌트 생성
 	HealthComponent = CreateDefaultSubobject<UHealthComponent>(TEXT("HealthComponent"));

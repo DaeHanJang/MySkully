@@ -6,6 +6,7 @@
 #include "GameFramework/Pawn.h"
 #include "Skully.generated.h"
 
+class USkullyTrailComponent;
 class USkullyCameraComponent;
 class UBoxComponent;
 class UPostProcessComponent;
@@ -101,6 +102,10 @@ private:
 	// Movement
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
 	USkullyMovementComponent* SkullyMovementComponent;
+	
+	//Trail
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
+	USkullyTrailComponent* SkullyTrailComponent;
 	
 	// Health
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))

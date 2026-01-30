@@ -928,15 +928,6 @@ bool USkullyMovementComponent::TryConfirmGroundByLineTrace(float WalkableZ)
 	return true;
 }
 
-void USkullyMovementComponent::UpdateMovementState(float DeltaTime)
-{
-	const FVector Velocity2D(Velocity.X, Velocity.Y, 0.0f);
-	CurrentSpeed2D = Velocity2D.Size();
-	CurrentDir2D = (CurrentSpeed2D > KINDA_SMALL_NUMBER) ? Velocity2D / CurrentSpeed2D : FVector::ZeroVector;
-	
-	OnMovementChanged.Broadcast(DeltaTime, CurrentSpeed2D, CurrentDir2D);
-}
-
 void USkullyMovementComponent::ApplyVisualRoll(const FVector& ActualDelta) const
 {
 	// 구르기 연출 플래그
@@ -992,6 +983,15 @@ void USkullyMovementComponent::ApplyVisualRoll(const FVector& ActualDelta) const
 	const FQuat DeltaRot(Axis, Angle);
 
 	Target->AddWorldRotation(DeltaRot);
+}
+
+void USkullyMovementComponent::UpdateMovementState(float DeltaTime)
+{
+	const FVector Velocity2D(Velocity.X, Velocity.Y, 0.0f);
+	CurrentSpeed2D = Velocity2D.Size();
+	CurrentDir2D = (CurrentSpeed2D > KINDA_SMALL_NUMBER) ? Velocity2D / CurrentSpeed2D : FVector::ZeroVector;
+	
+	OnMovementChanged.Broadcast(DeltaTime, CurrentSpeed2D, CurrentDir2D);
 }
 
 void USkullyMovementComponent::RequestJump()

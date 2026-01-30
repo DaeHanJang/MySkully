@@ -14,7 +14,7 @@ enum class ESkullyMovementMode : uint8
 	Falling UMETA(DisplayName = "Falling")
 };
 
-UCLASS()
+UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class MYSKULLY_API USkullyMovementComponent : public UPawnMovementComponent
 {
 	GENERATED_BODY()
@@ -25,6 +25,9 @@ public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	
 	FOnMovementChanged OnMovementChanged;
+	
+	FORCEINLINE ESkullyMovementMode GetMovementMode() const { return MovementMode; }
+	FORCEINLINE FVector GetLastActualDelta() const { return LastActualDelta; }
 	
 	/********************점프********************/
 	void RequestJump(); // 점프 요청
@@ -247,6 +250,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Jump|Input")
 	float CoyoteTime = 0.08f;
 	
+public:
 	/******************출력 변수******************/
 	// 현재 속력
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
@@ -254,12 +258,14 @@ protected:
 	// 현재 이동 방향
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
 	FVector CurrentDir2D = FVector::ZeroVector;
+	// 현재 히트
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground")
+	FHitResult CurrentFloorHit;
 	
 private:
 	ESkullyMovementMode MovementMode = ESkullyMovementMode::Falling; // 움직임 상태값
 
 	/******************캐싱*******************/
-	FHitResult CurrentFloorHit; // 현재 스윕 히트
 	FVector LastFloorNormal = FVector::UpVector; // 이전 프레임 바닥 노멀
 	FVector CachedFloorNormal = FVector::UpVector; // 바닥 노멀 캐싱
 	
