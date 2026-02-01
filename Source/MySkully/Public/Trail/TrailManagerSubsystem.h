@@ -5,6 +5,9 @@
 #include "TrailManagerSubsystem.generated.h"
 
 class ATrailStampManagerActor;
+class UStaticMesh;
+class UMaterialInterface;
+class URuntimeVirtualTexture;
 
 USTRUCT(BlueprintType)
 struct FTrailStampRequest
@@ -13,13 +16,25 @@ struct FTrailStampRequest
 	
 	UPROPERTY() FVector Location = FVector::ZeroVector;
 	UPROPERTY() FVector Normal = FVector::UpVector;
+	UPROPERTY() float Radius = 50.0f; // 반지름(cm)
+	UPROPERTY() float Strength = 1.0f; // 바닥에 남는 강도(0~1)
+};
+
+USTRUCT(BlueprintType)
+struct FTrailReceiverConfig
+{
+	GENERATED_BODY()
 	
-	// 지름 대신 반지름/스케일로 쓰기 쉬워서 Radius로
-	UPROPERTY() float Radius = 50.0f;
-	// 바닥에 남는 강도(0~1)
-	UPROPERTY() float Strength = 1.0f;
-	// 0~1래핑된 시간값(페이드용)
-	UPROPERTY() float TimeWrapped = 0.0f;
+	// RVT 타겟(필수)
+	UPROPERTY(EditAnywhere) TObjectPtr<URuntimeVirtualTexture> TrailRVT = nullptr;
+	// 어떤 매니저 액터를 스폰할지
+	UPROPERTY(EditAnywhere) TSubclassOf<ATrailStampManagerActor> ManagerClass = nullptr;
+	// 스탬프 리소스
+	UPROPERTY(EditAnywhere) TObjectPtr<UStaticMesh> StampMesh = nullptr;
+	UPROPERTY(EditAnywhere) TObjectPtr<UMaterialInterface> StampMaterial = nullptr;
+	//인스턴스 정책
+	UPROPERTY(EditAnywhere) int32 MaxInstances = 2000;
+	UPROPERTY(EditAnywhere) bool bReuseInstances = true;
 };
 
 UCLASS()
@@ -27,46 +42,52 @@ class MYSKULLY_API UTrailManagerSubsystem : public UWorldSubsystem
 {
 	GENERATED_BODY()
 	
-public:
-	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+public:	
 	virtual void Deinitialize() override;
 	
-	// RVT/자원 설정(Receiver가 호출)
-	void SetTrailRVT(URuntimeVirtualTexture* InRVT);
+	// Receiver가 호출하는 메인 API
+	void RegisterReceiver(AActor* Receiver, const FTrailReceiverConfig& Config);
+	void UnregisterReceiver(AActor* Receiver);
 	
 	// 스탬프 요청
 	void RequestStamp(const FTrailStampRequest& Req);
 	
-public:
-	UPROPERTY(EditDefaultsOnly)
-	URuntimeVirtualTexture* DefaultTrailRVT;
-	UPROPERTY(EditDefaultsOnly)
-	UStaticMesh* DefaultStampMesh;
-	UPROPERTY(EditDefaultsOnly)
-	UMaterialInterface* DefaultStampMaterial;
-
+	void UpdateFades(float DeltaSeconds);
+	
 private:
-	// 내부 헬퍼
-	// 필요할 때 매니저가 없으면 만들고, 있으면 그대로 사용
 	bool EnsureManagerActor();
+	void DestroyManagerActor();
+	void ApplyConfigToManager();
 	FTransform MakeStampTransform(const FVector& Location, const FVector& Normal, float Radius) const;
 	
 private:
-	UPROPERTY()
-	ATrailStampManagerActor* ManagerActor = nullptr;
+	UPROPERTY(Transient)
+	TObjectPtr<ATrailStampManagerActor> ManagerActor = nullptr;
+	
+	// 현재 활성 Receiver (스트리밍/중복 대비)
+	TWeakObjectPtr<AActor> CurrentReceiver;
+	
+	// 활성 설정 캐시
+	UPROPERTY(Transient) TObjectPtr<URuntimeVirtualTexture> TrailRVT = nullptr;
+	UPROPERTY(Transient) TSubclassOf<ATrailStampManagerActor> ManagerClass = nullptr;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> StampMesh = nullptr;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> StampMaterial = nullptr;
 	
 	UPROPERTY()
-	TObjectPtr<URuntimeVirtualTexture> TrailRVT = nullptr;
+	UMaterialInterface* Test = nullptr;
 	
-	// 스탬프 메시/머티리얼
-	UPROPERTY()
-	TObjectPtr<UStaticMesh> StampMesh = nullptr;
-	UPROPERTY()
-	TObjectPtr<UMaterialInterface> StampMaterial = nullptr;
+	UPROPERTY(EditAnywhere, Category="Trail")
+	float SurfaceOffsetCm = 0.5f;
+	UPROPERTY(EditAnywhere, Category="Fade")
+	float TrailLifetimeSec = 2.5f; 
 	
-	// 간단한 재활용(원형 버퍼)
 	int32 MaxInstances = 2000;
-	int32 NextReuseIndex = 0;
 	bool bReuseInstances = true;
+	
+	// 원형 버퍼 인덱스
+	int32 NextReuseIndex = 0;
+	
+	// 인스턴스별 나이
+	TArray<float> InstanceAgesSec;
 		
 };

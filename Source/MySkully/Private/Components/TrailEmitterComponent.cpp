@@ -2,6 +2,7 @@
 
 #include "Skully/SkullyMovementComponent.h"
 #include "Trail/TrailManagerSubsystem.h"
+#include "Engine/World.h"
 
 UTrailEmitterComponent::UTrailEmitterComponent()
 {
@@ -26,21 +27,19 @@ void UTrailEmitterComponent::BeginPlay()
 		return;
 	}
 	
-	// 초기화
-	LastEmitLocation = Owner->GetActorLocation();
-	bHasLastEmit = true;
 	AccumulatedDistanceCm = 0.0f;
 	
-	// MovementChanged 이벤트 구독
-	MoveComp->OnMovementChanged.AddUObject(this, &UTrailEmitterComponent::OnMoveChanged);
+	// 델리게이트 핸들 저장
+	MovementChangedHandle = MoveComp->OnMovementChanged.AddUObject(this, &UTrailEmitterComponent::OnMoveChanged);
 }
 
 void UTrailEmitterComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	if (MoveComp != nullptr)
+	if (MoveComp != nullptr && MovementChangedHandle.IsValid() == true)
 	{
 		// 멀티캐스트에서 제거(안 하면 EndPlay 이후 호출 위험)
 		MoveComp->OnMovementChanged.RemoveAll(this);
+		MovementChangedHandle.Reset();
 	}
 	
 	Super::EndPlay(EndPlayReason);
@@ -48,52 +47,48 @@ void UTrailEmitterComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void UTrailEmitterComponent::OnMoveChanged(float DeltaTime, float Speed, FVector Dir)
 {
-	AActor* Owner = GetOwner();
-	if (Owner == nullptr || MoveComp == nullptr)
+	if (MoveComp == nullptr)
 	{
 		return;
 	}
-	// 속도 너무 낮으면 누적도 하지 않는 쪽이 보통 덜 지저분 함
+	
+	// 1. 상태가 트레일을 찍을 수 없으면 누적도 하지 않음
+	if (CanEmit() == false)
+	{
+		AccumulatedDistanceCm = 0.0f;
+		return;
+	}
+	
+	// 2. 속도가 너무 낮으면 누적하지 않음
 	if (Speed < MinSpeedToEmitCmPerSec)
 	{
 		return;
 	}
 	
-	if (bHasLastEmit == false)
+	// 3. 이동거리 누적: 실제 이동량 기반
+	const FVector ActualDelta = MoveComp->GetLastActualDelta();
+	const float DeltaDist = FVector(MoveComp->GetLastActualDelta().X, MoveComp->GetLastActualDelta().Y, 0.0f).Size();	
+	if (DeltaDist <= KINDA_SMALL_NUMBER)
 	{
-		LastEmitLocation = Owner->GetActorLocation();
-		bHasLastEmit = true;
 		return;
 	}
-	
-	// 이동거리 누적
-	const FVector CurLoc = Owner->GetActorLocation();
-	const float DeltaDist = FVector(MoveComp->GetLastActualDelta().X, MoveComp->GetLastActualDelta().Y, 0.0f).Size();
-	
 	AccumulatedDistanceCm += DeltaDist;
 	
-	if (AccumulatedDistanceCm < StampSpacingCm)
+	// 4. 고속 이동에서 스탬프가 끊기지 않게 while로 여러 개 찍기
+	const float Strength = ComputeStrength(Speed);
+	
+	while (AccumulatedDistanceCm >= StampSpacingCm)
 	{
-		return;
+		EmitStamp(Strength);
+		AccumulatedDistanceCm -= StampSpacingCm;
+		
+		// 무한루프 방지(혹시 StampSpacing이 0으로 들어오면)
+		if (StampSpacingCm <= KINDA_SMALL_NUMBER)
+		{
+			AccumulatedDistanceCm = 0.0f;
+			return;
+		}
 	}
-	
-	if (CanEmit() == false)
-	{
-		return;
-	}
-	
-	// Strength 계산
-	float Strength = ConstantStrength;
-	if (bStrengthFromSpeed == true)
-	{
-		Strength = SpeedForMaxStrengthCmPerSec > 1.0f ? FMath::Clamp(Speed / SpeedForMaxStrengthCmPerSec, 0.0f, 1.0f) : 1.0f;
-	}
-	
-	EmitStamp(Strength);;
-	
-	// 리셋
-	AccumulatedDistanceCm = 0.0f;
-	LastEmitLocation = CurLoc;
 }
 
 bool UTrailEmitterComponent::CanEmit() const
@@ -125,6 +120,21 @@ bool UTrailEmitterComponent::CanEmit() const
 	return true;
 }
 
+float UTrailEmitterComponent::ComputeStrength(float Speed) const
+{
+	if (bStrengthFromSpeed == false)
+	{
+		return FMath::Clamp(ConstantStrength, 0.0f, 1.0f);
+	}
+	
+	if (SpeedForMaxStrengthCmPerSec <= 1.0f)
+	{
+		return 1.0f;
+	}
+	
+	return FMath::Clamp(Speed / SpeedForMaxStrengthCmPerSec, 0.0f, 1.0f);
+}
+
 void UTrailEmitterComponent::EmitStamp(float Strength)
 {
 	UWorld* World = GetWorld();
@@ -139,6 +149,7 @@ void UTrailEmitterComponent::EmitStamp(float Strength)
 		return;
 	}
 	
+	// 바닥 접점/노멀 사용
 	const FHitResult& FloorHit = MoveComp->CurrentFloorHit;
 	
 	FTrailStampRequest Req;
@@ -146,7 +157,6 @@ void UTrailEmitterComponent::EmitStamp(float Strength)
 	Req.Normal = FloorHit.ImpactNormal;
 	Req.Radius = StampRadiusCm;
 	Req.Strength = Strength;
-	Req.TimeWrapped = GetTimeWrapped();
 	
 	TrailMgr->RequestStamp(Req);
 }

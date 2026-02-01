@@ -6,6 +6,7 @@
 #include "GameFramework/Pawn.h"
 #include "Skully.generated.h"
 
+class UTrailEmitterComponent;
 class USkullyTrailComponent;
 class USkullyCameraComponent;
 class UBoxComponent;
@@ -103,12 +104,12 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
 	USkullyMovementComponent* SkullyMovementComponent;
 	
-	//Trail
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
-	USkullyTrailComponent* SkullyTrailComponent;
+	// Trail
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Trail", meta = (AllowPrivateAccess="true"))
+	UTrailEmitterComponent* TrailEmitterComponent;
 	
 	// Health
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Health", meta = (AllowPrivateAccess="true"))
 	UHealthComponent* HealthComponent;
 	
 	// Input
