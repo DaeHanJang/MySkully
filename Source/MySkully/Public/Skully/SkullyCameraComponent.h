@@ -11,7 +11,7 @@ class MYSKULLY_API USkullyCameraComponent : public UCameraComponent
 	
 public:
 	USkullyCameraComponent();
-	
+		
 	// 기본 FOV
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FOV")
 	float BaseFOV = 90.0f;

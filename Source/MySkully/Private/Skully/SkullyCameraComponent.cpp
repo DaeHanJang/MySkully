@@ -3,4 +3,5 @@
 USkullyCameraComponent::USkullyCameraComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
+	
 }

@@ -66,12 +66,15 @@ ASkully::ASkully()
 	// 카메라 생성
 	Camera = CreateDefaultSubobject<USkullyCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(CameraSpringArm, USpringArmComponent::SocketName);
-	Camera->bUsePawnControlRotation = true;
+	Camera->bUsePawnControlRotation = false;
 	
 	// 카메라 콜리전 생성
 	CameraBoxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("CameraBoxComponent"));
 	CameraBoxComponent->SetupAttachment(Camera);
-	CameraBoxComponent->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+	CameraBoxComponent->SetCollisionObjectType(ECC_WorldDynamic);
+	CameraBoxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	CameraBoxComponent->SetCollisionResponseToAllChannels(ECR_Overlap);
+	CameraBoxComponent->SetBoxExtent(FVector(60.0f), true);
 	CameraBoxComponent->SetGenerateOverlapEvents(true);
 	CameraBoxComponent->OnComponentBeginOverlap.AddDynamic(this, &ASkully::OnCameraBoxComponentBeginOverlap);
 	CameraBoxComponent->OnComponentEndOverlap.AddDynamic(this, &ASkully::OnCameraBoxComponentEndOverlap);
@@ -143,24 +146,28 @@ void ASkully::OnTakeHealth_Implementation()
 void ASkully::OnCameraBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
                                                UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	if (OtherActor == nullptr || OtherActor == this)
+	{
+		return;
+	}
+	
 	if (AHazard* Hazard = Cast<AHazard>(OtherActor))
 	{
-		if (UBoxComponent* BoxComponent = Cast<UBoxComponent>(OtherComp))
-		{
-			PostProcessComponent->BlendWeight = 1.0f;
-		}
+		PostProcessComponent->BlendWeight = 1.0f;
 	}
 }
 
 void ASkully::OnCameraBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
+	if (OtherActor == nullptr)
+	{
+		return;
+	}
+	
 	if (AHazard* Hazard = Cast<AHazard>(OtherActor))
 	{
-		if (UBoxComponent* BoxComponent = Cast<UBoxComponent>(OtherComp))
-		{
-			PostProcessComponent->BlendWeight = 0.0f;
-		}
+		PostProcessComponent->BlendWeight = 0.0f;
 	}
 }
 
@@ -227,6 +234,11 @@ void ASkully::Look(const FInputActionValue& Value)
 	{
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
+		
+		if (CameraBoxComponent != nullptr)
+		{
+			CameraBoxComponent->UpdateOverlaps();
+		}
 	}
 }
 
