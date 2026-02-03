@@ -2,6 +2,7 @@
 
 #include "Components/BoxComponent.h"
 #include "GameFramework/SkullyGameMode.h"
+#include "Gollem/GollemCharacter.h"
 #include "Kismet/GameplayStatics.h"
 #include "Skully/Skully.h"
 
@@ -18,7 +19,7 @@ AClayMount::AClayMount()
 	{
 		StaticMesh->SetStaticMesh(StaticMeshAsset.Object);
 		RootComponent = StaticMesh;
-		StaticMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		StaticMesh->SetCollisionProfileName(TEXT("NoCollision"));
 	}
 	
 	// 상호작용 감지 콜라이더 생성
@@ -84,6 +85,19 @@ void AClayMount::OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp,
 		} 
 		Skully->SetOnClayMound(true);
 	}
+	else if (AGollemCharacter* Gollem = Cast<AGollemCharacter>(OtherActor))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("On Clay Mound"));
+		if (ASkullyGameMode* GameMode = Cast<ASkullyGameMode>(UGameplayStatics::GetGameMode(GetWorld())))
+		{
+			if (SaveIndex > GameMode->GetSaveIndex())
+			{
+				GameMode->SetSaveLocation(GetActorLocation() + FVector(0.0f, 0.0f, 300.f));
+				GameMode->SetSaveIndex(SaveIndex);
+			}
+		}
+		Gollem->SetOnClayMound(true);
+	}
 }
 
 void AClayMount::OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
@@ -98,5 +112,10 @@ void AClayMount::OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, A
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Off Clay Mound"));
 		Skully->SetOnClayMound(false);
+	}
+	else if (AGollemCharacter* Gollem = Cast<AGollemCharacter>(OtherActor))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Off Clay Mound"));
+		Gollem->SetOnClayMound(false);
 	}
 }

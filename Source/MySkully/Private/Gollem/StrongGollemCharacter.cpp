@@ -1,13 +1,16 @@
 #include "Gollem/StrongGollemCharacter.h"
 
+#include "EnhancedInputComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/PostProcessComponent.h"
 #include "Components/HealthComponent/HealthComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/SkullyGameMode.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Hazard/Hazard.h"
+#include "Kismet/GameplayStatics.h"
 #include "Skully/SkullyCameraComponent.h"
 
 AStrongGollemCharacter::AStrongGollemCharacter()
@@ -89,6 +92,7 @@ AStrongGollemCharacter::AStrongGollemCharacter()
 void AStrongGollemCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	StartSpawnFrontCamera();
 	
 	if (InteractionBox != nullptr)
 	{
@@ -101,8 +105,24 @@ void AStrongGollemCharacter::BeginPlay()
 	}
 }
 
+void AStrongGollemCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+	
+	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
+	if (EIC == nullptr)
+	{
+		return;
+	}
+	
+	if (IA_Secondary != nullptr)
+	{
+		EIC->BindAction(IA_Secondary, ETriggerEvent::Completed, this, &AStrongGollemCharacter::StopSecondaryAction);
+	}
+}
+
 void AStrongGollemCharacter::OnCameraBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+                                                              UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor == nullptr || OtherActor == this)
 	{
@@ -131,10 +151,15 @@ void AStrongGollemCharacter::OnCameraBoxComponentEndOverlap(UPrimitiveComponent*
 
 void AStrongGollemCharacter::OnTakeDamage_Implementation()
 {
+	UE_LOG(LogTemp, Warning, TEXT("HP: %f"), HealthComponent->GetHealth());
 }
 
 void AStrongGollemCharacter::OnDeath_Implementation()
 {
+	if (ASkullyGameMode* GameMode = Cast<ASkullyGameMode>(UGameplayStatics::GetGameMode(GetWorld())))
+	{
+		GameMode->RespawnPlayer();
+	}
 }
 
 void AStrongGollemCharacter::OnTakeHealth_Implementation()
@@ -161,3 +186,86 @@ void AStrongGollemCharacter::SecondaryAction_Implementation()
 	
 	UE_LOG(LogTemp, Log, TEXT("[StrongGollem] SecondaryAction (Slam) %s"), *GetName());
 }
+
+void AStrongGollemCharacter::StopSecondaryAction_Implementation()
+{
+}
+
+void AStrongGollemCharacter::StartSpawnFrontCamera()
+{
+	Super::StartSpawnFrontCamera();
+	
+	if (CameraBoom == nullptr || bSpawnCamActive == true)
+	{
+		return;
+	}
+	
+	bSpawnCamActive = true;
+	bSpawnCamReturning = false;
+	
+	CachedBoomRot = CameraBoom->GetRelativeRotation();
+	
+	SpawnFrontRot = CachedBoomRot;
+	SpawnFrontRot.Yaw += 180.0f;
+	
+	CameraBoom->bUsePawnControlRotation = false;
+	CameraBoom->SetRelativeRotation(SpawnFrontRot);
+	
+	GetWorldTimerManager().SetTimer(SpawnCamTimerHandler, this, &AStrongGollemCharacter::BeginSpawnFrontCameraReturn, 2.0f, false);
+}
+
+void AStrongGollemCharacter::EndSpawnFrontCamera()
+{
+	Super::EndSpawnFrontCamera();
+	
+	if (CameraBoom == nullptr || bSpawnCamActive == false)
+	{
+		return;
+	}
+	
+	bSpawnCamReturning = false;
+	bSpawnCamActive = false;
+	
+	CameraBoom->SetRelativeRotation(CachedBoomRot);
+	CameraBoom->bUsePawnControlRotation = true;
+}
+
+void AStrongGollemCharacter::BeginSpawnFrontCameraReturn()
+{
+	Super::BeginSpawnFrontCameraReturn();
+	
+	if (CameraBoom == nullptr || bSpawnCamActive == false)
+	{
+		return;
+	}
+	
+	bSpawnCamReturning = true;
+	SpawnCamReturnElapsed = 0.0f;
+	
+	GetWorldTimerManager().ClearTimer(SpawnCamTimerHandler);
+	GetWorldTimerManager().SetTimer(SpawnCamReturnTimerHandler, this, &AStrongGollemCharacter::TickSpawnFrontCameraReturn, 0.016f, true);
+}
+
+void AStrongGollemCharacter::TickSpawnFrontCameraReturn()
+{
+	Super::TickSpawnFrontCameraReturn();
+	
+	if (CameraBoom == nullptr || bSpawnCamActive == false)
+	{
+		EndSpawnFrontCamera();
+		return;
+	}
+	
+	SpawnCamReturnElapsed += 0.016f;
+	const float Alpha = FMath::Clamp(SpawnCamReturnElapsed / FMath::Max(0.5f, KINDA_SMALL_NUMBER), 0.0f, 1.0f);
+	const float SmoothAlpha = FMath::InterpEaseInOut(0.0f, 1.0f, Alpha, 2.0f);
+	
+	const FRotator NewRot = FMath::Lerp(SpawnFrontRot, CachedBoomRot, SmoothAlpha);
+	CameraBoom->SetRelativeRotation(NewRot);
+	
+	if (Alpha >= 1.0f)
+	{
+		EndSpawnFrontCamera();
+	}
+}
+

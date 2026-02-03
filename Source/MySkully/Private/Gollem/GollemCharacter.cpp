@@ -311,3 +311,19 @@ void AGollemCharacter::CheckFallingApex()
 		bDescendingGravityApplied = true;
 	}
 }
+
+void AGollemCharacter::StartSpawnFrontCamera()
+{
+}
+
+void AGollemCharacter::EndSpawnFrontCamera()
+{
+}
+
+void AGollemCharacter::BeginSpawnFrontCameraReturn()
+{
+}
+
+void AGollemCharacter::TickSpawnFrontCameraReturn()
+{
+}

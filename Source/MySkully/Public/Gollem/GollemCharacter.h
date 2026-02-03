@@ -20,6 +20,9 @@ class MYSKULLY_API AGollemCharacter : public ACharacter
 
 public:
 	AGollemCharacter();
+	
+	FORCEINLINE bool GetOnClayMound() const { return bOnClayMound; }
+	FORCEINLINE void SetOnClayMound(bool Value) { bOnClayMound = Value; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -40,6 +43,12 @@ protected:
 	void StartFallingMonitor();
 	void StopFallingMonitor();
 	void CheckFallingApex();
+	
+	//Spawn
+	virtual void StartSpawnFrontCamera();
+	virtual void EndSpawnFrontCamera();
+	virtual void BeginSpawnFrontCameraReturn();
+	virtual void TickSpawnFrontCameraReturn();
 	
 	// Collision
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Gollem|Collision")
@@ -87,10 +96,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gollem|Jump")
 	float GravityScaleGrounded = 1.0f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gollem|Jump")
-	float GravityScaleAscending = 2.0f;
+	float GravityScaleAscending = 2.5f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gollem|Jump")
-	float GravityScaleDescending = 3.0f;
-	
+	float GravityScaleDescending = 4.0f;
+		
 	// Input Handler
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
@@ -111,10 +120,21 @@ protected:
 	void SecondaryAction();
 	virtual void SecondaryAction_Implementation();
 	
-private:
 	bool bInputMappingContextApplied = false;
 	
 	// Jump
 	FTimerHandle FallingCheckTimer;
 	bool bDescendingGravityApplied = false;
+	
+	// Spawn
+	bool bSpawnCamActive = false;
+	bool bSpawnCamReturning = false;
+	FRotator CachedBoomRot;
+	FRotator SpawnFrontRot;
+	FTimerHandle SpawnCamTimerHandler;
+	FTimerHandle SpawnCamReturnTimerHandler;
+	float SpawnCamReturnElapsed = 0.0f;
+	
+	// Puddle
+	bool bOnClayMound = false;
 };

@@ -5,9 +5,11 @@
 #include "Components/ArrowComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/PostProcessComponent.h"
+#include "Components/SphereComponent.h"
 #include "Components/HealthComponent/HealthComponent.h"
 #include "GameFramework/SkullyGameMode.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Gollem/GollemCharacter.h"
 #include "Hazard/Hazard.h"
 #include "Kismet/GameplayStatics.h"
 #include "Skully/SkullyCameraComponent.h"
@@ -42,7 +44,7 @@ ASkully::ASkully()
 		Skully_Bone->SetSkeletalMesh(Skully_BoneMesh.Object);
 		Skully_Bone->SetupAttachment(MeshPivot);
 		Skully_Bone->SetRelativeLocation(FVector(10.0f, 0.0f, -8.0f));
-		Skully_Bone->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Skully_Bone->SetCollisionProfileName(TEXT("NoCollision"));
 	}
 	
 	// 스태틱 메시(Skully_Clay) 생성
@@ -53,7 +55,7 @@ ASkully::ASkully()
 		Skully_Clay->SetStaticMesh(Skully_ClayMesh.Object);
 		Skully_Clay->SetupAttachment(MeshPivot);
 		Skully_Clay->SetRelativeLocation(FVector(20.0f, 0.0f, -8.0f));
-		Skully_Clay->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Skully_Clay->SetCollisionProfileName(TEXT("NoCollision"));
 	}
 	
 	// 스프링 암 생성
@@ -71,11 +73,9 @@ ASkully::ASkully()
 	// 카메라 콜리전 생성
 	CameraBoxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("CameraBoxComponent"));
 	CameraBoxComponent->SetupAttachment(Camera);
-	CameraBoxComponent->SetCollisionObjectType(ECC_WorldDynamic);
-	CameraBoxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	CameraBoxComponent->SetCollisionResponseToAllChannels(ECR_Overlap);
-	CameraBoxComponent->SetBoxExtent(FVector(60.0f), true);
+	CameraBoxComponent->SetCollisionProfileName(TEXT("SkullyCamera"));
 	CameraBoxComponent->SetGenerateOverlapEvents(true);
+	CameraBoxComponent->SetBoxExtent(FVector(60.0f), true);
 	CameraBoxComponent->OnComponentBeginOverlap.AddDynamic(this, &ASkully::OnCameraBoxComponentBeginOverlap);
 	CameraBoxComponent->OnComponentEndOverlap.AddDynamic(this, &ASkully::OnCameraBoxComponentEndOverlap);
 	
@@ -117,6 +117,21 @@ void ASkully::BeginPlay()
 	SkullyMovementComponent->OnMovementChanged.AddUObject(this, &ASkully::UpdateFOVBySpeed);
 }
 
+void ASkully::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+}
+
+void ASkully::UnPossessed()
+{
+	Super::UnPossessed();
+}
+
+void ASkully::PawnClientRestart()
+{
+	Super::PawnClientRestart();
+}
+
 void ASkully::OnTakeDamage_Implementation()
 {
 	UE_LOG(LogTemp, Warning, TEXT("HP: %f"), HealthComponent->GetHealth());
@@ -132,13 +147,7 @@ void ASkully::OnDeath_Implementation()
 }
 
 void ASkully::OnTakeHealth_Implementation()
-{
-	if (bOnClayMound == false)
-	{
-		GetWorldTimerManager().ClearTimer(HealTimerHandle);
-		return;
-	}
-	
+{	
 	UE_LOG(LogTemp, Warning, TEXT("HP: %f"), HealthComponent->GetHealth());
 	SetSkully_ClayScale(HealthComponent->GetHealth() / 100.0f);
 }
@@ -189,8 +198,10 @@ void ASkully::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ASkully::Look);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ASkully::Jump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ASkully::StopJump);
-		EnhancedInputComponent->BindAction(ClayMoundAction, ETriggerEvent::Started, this, &ASkully::Heal);
-		EnhancedInputComponent->BindAction(ClayMoundAction, ETriggerEvent::Completed, this, &ASkully::StopHeal);
+		EnhancedInputComponent->BindAction(ClayMoundAction, ETriggerEvent::Started, this, &ASkully::Interact);
+		EnhancedInputComponent->BindAction(ClayMoundAction, ETriggerEvent::Completed, this, &ASkully::StopInteract);
+		EnhancedInputComponent->BindAction(TransformStrongAction, ETriggerEvent::Triggered, this, &ASkully::TransformStrongGollem);
+		EnhancedInputComponent->BindAction(TransformSwiftAction, ETriggerEvent::Triggered, this, &ASkully::TransformSwiftGollem);
 	}
 }
 
@@ -210,6 +221,11 @@ void ASkully::UpdateFOVBySpeed(float DeltaTime, float Speed, FVector Dir)
 // 이동
 void ASkully::Move(const FInputActionValue& Value)
 {
+	if (bTransitioningClayMound == true || bIsInClayMoundInteraction == true)
+	{
+		return;
+	}
+	
 	FVector2D MovementVector = Value.Get<FVector2D>();
 	
 	if (Controller != nullptr)
@@ -245,6 +261,11 @@ void ASkully::Look(const FInputActionValue& Value)
 // 점프
 void ASkully::Jump(const FInputActionValue& Value)
 {
+	if (bTransitioningClayMound == true || bIsInClayMoundInteraction == true)
+	{
+		return;
+	}
+	
 	if (SkullyMovementComponent != nullptr)
 	{
 		SkullyMovementComponent->RequestJump();
@@ -259,23 +280,209 @@ void ASkully::StopJump(const FInputActionValue& Value)
 }
 
 // 웅덩이 상호작용
-void ASkully::Heal(const FInputActionValue& Value)
+void ASkully::Interact(const FInputActionValue& Value)
 {
 	if (bOnClayMound == false)
 	{
 		return;
 	}
 	
-	UE_LOG(LogTemp, Warning, TEXT("Healing Skully"));
-	GetWorldTimerManager().SetTimer(HealTimerHandle, HealthComponent, &UHealthComponent::GainHealth, 0.02f, true, 0.0f);
+	if (bTransitioningClayMound == true)
+	{
+		bIsInClayMoundInteraction = true;
+		bClayMoundSubmerged = true;
+		
+		if (GetWorldTimerManager().IsTimerActive(HealTimerHandle) == false)
+		{
+			GetWorldTimerManager().SetTimer(HealTimerHandle, HealthComponent, &UHealthComponent::GainHealth, 0.02f, true, 0.0f);
+		}
+		
+		return;
+	}
+	
+	HideSkully(false);
+	
+	CameraSpringArm->ProbeChannel = ECC_GameTraceChannel1;
+	
+	if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+	{
+		PC->PlayerCameraManager->ViewPitchMin = -89.9f;
+		PC->PlayerCameraManager->ViewPitchMax = -20.0f;
+	}
+	
+	bIsInClayMoundInteraction = true;
+	bTransitioningClayMound = true;
+	bClayMoundSubmerged = true;
+	
+	if (bClayBaseLocked == false)
+	{
+		ClayMountSurfaceLocation = GetActorLocation();
+		bClayBaseLocked = true;
+	}
+	
+	if (GetWorldTimerManager().IsTimerActive(HealTimerHandle) == false)
+	{
+		GetWorldTimerManager().SetTimer(HealTimerHandle, HealthComponent, &UHealthComponent::GainHealth, 0.02f, true, 0.0f);
+	}
+	if (GetWorldTimerManager().IsTimerActive(ClayTransitionTimerHandle) == false)
+	{
+		GetWorldTimerManager().SetTimer(ClayTransitionTimerHandle, this, &ASkully::UpdateClayMoundTransition, 0.02f, true, 0.0f);
+	}
 }
-void ASkully::StopHeal(const FInputActionValue& Value)
+void ASkully::StopInteract(const FInputActionValue& Value)
 {	
+	if (bClayBaseLocked == false && bTransitioningClayMound == false && bIsInClayMoundInteraction == false)
+	{
+		return;
+	}
+	
+	bIsInClayMoundInteraction = false;
+	bClayMoundSubmerged = false;
+	bCanTransform = false;
+	
 	if (GetWorldTimerManager().IsTimerActive(HealTimerHandle) == true)
 	{
 		GetWorldTimerManager().ClearTimer(HealTimerHandle);
-		UE_LOG(LogTemp, Warning, TEXT("End Healing Skully"));
 	}
+	if (GetWorldTimerManager().IsTimerActive(ClayTransitionTimerHandle) == false)
+	{
+		bTransitioningClayMound = true;
+		GetWorldTimerManager().SetTimer(ClayTransitionTimerHandle, this, &ASkully::UpdateClayMoundTransition, 0.02f, true, 0.0f);
+	}
+}
+
+// 골렘 변신
+void ASkully::TransformStrongGollem(const FInputActionValue& Value)
+{
+	if (bCanTransform == false)
+	{
+		return;
+	}
+	
+	TransformToGollem(StrongGollemClass);
+}
+void ASkully::TransformSwiftGollem(const FInputActionValue& Value)
+{
+	if (bCanTransform == false)
+	{
+		return;
+	}
+	
+	TransformToGollem(SwiftGollemClass);
+}
+
+// 웅덩이 연출
+void ASkully::UpdateClayMoundTransition()
+{
+	const float Step = 0.02f / FMath::Max(0.25f, KINDA_SMALL_NUMBER);
+	
+	if (bClayMoundSubmerged == true)
+	{
+		ClayAlpha = FMath::Min(1.0f, ClayAlpha + Step);
+	}
+	else
+	{
+		ClayAlpha = FMath::Max(0.0f, ClayAlpha - Step);
+	}
+	
+	const FVector TargetOffset(0.0f, 0.0f, -200.0f);
+	const FVector NewLocation = FMath::Lerp(ClayMountSurfaceLocation, ClayMountSurfaceLocation + TargetOffset, ClayAlpha);
+	
+	SetActorLocation(NewLocation, false, nullptr, ETeleportType::TeleportPhysics);
+	
+	const bool bReached = (bClayMoundSubmerged == true && ClayAlpha >= 1.0f) || (bClayMoundSubmerged == false && ClayAlpha <= 0.0f);
+	
+	if (bReached == true)
+	{
+		bTransitioningClayMound = false;
+		
+		if (GetWorldTimerManager().IsTimerActive(ClayTransitionTimerHandle) == true)
+		{
+			GetWorldTimerManager().ClearTimer(ClayTransitionTimerHandle);
+		}
+		
+		// 웅덩이 끝까지 내려간 상태
+		if (bClayMoundSubmerged == true)
+		{
+			bCanTransform = true;
+		}
+		// 웅덩이 끝까지 올라온 상태
+		else
+		{
+			CameraSpringArm->ProbeChannel = ECC_Camera;
+			
+			if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+			{
+				PC->PlayerCameraManager->ViewPitchMin = -89.9f;
+				PC->PlayerCameraManager->ViewPitchMax = 89.9f;
+			}
+			
+			ShowSkully();
+			
+			bClayBaseLocked = false;
+		}
+	}
+}
+
+// 변신
+void ASkully::TransformToGollem(TSubclassOf<AGollemCharacter> GollemClass)
+{
+	if (GollemClass == nullptr)
+	{
+		return;
+	}
+	if (CurrentGollem != nullptr)
+	{
+		return;
+	}
+	
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (PC == nullptr)
+	{
+		return;
+	}
+		
+	if (GetWorldTimerManager().IsTimerActive(HealTimerHandle) == true)
+	{
+		GetWorldTimerManager().ClearTimer(HealTimerHandle);
+	}
+	if (GetWorldTimerManager().IsTimerActive(ClayTransitionTimerHandle) == true)
+	{
+		GetWorldTimerManager().ClearTimer(ClayTransitionTimerHandle);
+	}
+	
+	bIsInClayMoundInteraction = false;
+	bTransitioningClayMound = false;
+	bCanTransform = false;
+	bClayMoundSubmerged = true;
+	ClayAlpha = 1.0f;
+	bClayBaseLocked = false;
+	
+	CameraSpringArm->ProbeChannel = ECC_Camera;
+	
+	PC->PlayerCameraManager->ViewPitchMin = -89.9f;
+	PC->PlayerCameraManager->ViewPitchMax = 89.9f;
+	
+	HideSkully(true, true);
+	
+	FVector SpawnLocation = ClayMountSurfaceLocation;
+	SpawnLocation.Z += 300.0f;
+	
+	FRotator SpawnRotation = FRotator(0.0f, PC->GetControlRotation().Yaw, 0.0f);
+	
+	FActorSpawnParameters Params;
+	Params.Owner = PC;
+	Params.Instigator = this;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	
+	AGollemCharacter* NewGollem = GetWorld()->SpawnActor<AGollemCharacter>(GollemClass, SpawnLocation, SpawnRotation, Params);
+	if (NewGollem == nullptr)
+	{
+		return;
+	}
+	
+	PC->Possess(NewGollem);
+	CurrentGollem = NewGollem;
 }
 
 // 스컬리 초기화
@@ -284,6 +491,67 @@ void ASkully::InitState()
 	HealthComponent->SetHealth(100.0f);
 	SetSkully_ClayScale(HealthComponent->GetHealth() / 100.0f);
 	SkullyMovementComponent->Velocity = FVector::ZeroVector;
+}
+
+// 스컬리 숨기기
+void ASkully::HideSkully(bool bNoCollision, bool bMesh)
+{
+	if (SkullyMovementComponent != nullptr)
+	{
+		SkullyMovementComponent->StopMovementImmediately();
+		SkullyMovementComponent->SetComponentTickEnabled(false);
+	}
+	
+	if (SphereComponent != nullptr)
+	{
+		CachedSphereCollision = SphereComponent->GetCollisionEnabled();
+		CachedCollisionProfileName = SphereComponent->GetCollisionProfileName();
+		
+		if (bNoCollision == true)
+		{
+			SphereComponent->SetCollisionProfileName(TEXT("NoCollision"));
+		}
+		else
+		{
+			SphereComponent->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+		}
+	}
+	
+	if (bMesh == true)
+	{
+		if (Skully_Bone != nullptr)
+		{
+			Skully_Bone->SetVisibility(false);
+		}
+		if (Skully_Clay != nullptr)
+		{
+			Skully_Clay->SetVisibility(false);
+		}
+	}
+}
+
+// 스컬리 보이기
+void ASkully::ShowSkully()
+{
+	if (SphereComponent != nullptr)
+	{
+		SphereComponent->SetCollisionEnabled(CachedSphereCollision);
+		SphereComponent->SetCollisionProfileName(CachedCollisionProfileName);
+	}
+			
+	if (SkullyMovementComponent != nullptr)
+	{
+		SkullyMovementComponent->SetComponentTickEnabled(true);
+	}
+	
+	if (Skully_Bone != nullptr)
+	{
+		Skully_Bone->SetVisibility(true);
+	}
+	if (Skully_Clay != nullptr)
+	{
+		Skully_Clay->SetVisibility(true);
+	}
 }
 
 // 스태틱 메시 스케일 설정

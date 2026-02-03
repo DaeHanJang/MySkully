@@ -1,8 +1,11 @@
 #include "Hazard/Hazard.h"
 
 #include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "Components/SphereComponent.h"
 #include "Components/HealthComponent/HealthComponent.h"
 #include "GameFramework/Character.h"
+#include "Gollem/GollemCharacter.h"
 #include "Kismet/GameplayStatics.h"
 #include "Skully/Skully.h"
 
@@ -14,7 +17,7 @@ AHazard::AHazard()
 	BoxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComponent"));
 	RootComponent = BoxComponent;
 	BoxComponent->InitBoxExtent(FVector(2500.0f, 2500.0f, 5000.0f));
-	BoxComponent->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+	BoxComponent->SetCollisionProfileName(TEXT("Hazard"));
 	BoxComponent->SetGenerateOverlapEvents(true);
 	BoxComponent->OnComponentBeginOverlap.AddDynamic(this, &AHazard::OnBoxComponentBeginOverlap);
 	BoxComponent->OnComponentEndOverlap.AddDynamic(this, &AHazard::OnBoxComponentEndOverlap);
@@ -58,6 +61,17 @@ void AHazard::OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AA
 			}
 		}
 	}
+	else if (AGollemCharacter* Gollem = Cast<AGollemCharacter>(OtherActor))
+	{
+		if (UCapsuleComponent* CapsuleComponent = Cast<UCapsuleComponent>(OtherComp))
+		{
+			if (GetWorldTimerManager().IsTimerActive(DamageTimerHandle) == false)
+			{
+				OverlappingGollem = Gollem;
+				GetWorldTimerManager().SetTimer(DamageTimerHandle, this, &AHazard::DealDamageTick, DamageTickInterval, true, 0.0f);
+			}
+		}
+	}
 }
 
 void AHazard::OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
@@ -75,18 +89,33 @@ void AHazard::OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AAct
 			GetWorldTimerManager().ClearTimer(DamageTimerHandle);
 		}
 	}
+	else if (AGollemCharacter* Gollem = Cast<AGollemCharacter>(OtherActor))
+	{
+		if (UCapsuleComponent* CapsuleComponent = Cast<UCapsuleComponent>(OtherComp))
+		{
+			OverlappingGollem = nullptr;
+			GetWorldTimerManager().ClearTimer(DamageTimerHandle);
+		}
+	}
 }
 
 void AHazard::DealDamageTick() const
 {
 	ASkully* Skully = OverlappingSkully.Get();
-	if (Skully == nullptr)
-	{
-		return;
-	}
+	AGollemCharacter* Gollem = OverlappingGollem.Get();
 	
-	if (UHealthComponent* HealthComponent = Skully->FindComponentByClass<UHealthComponent>())
+	if (Skully != nullptr)
 	{
-		HealthComponent->LoseHealth(DamagePerTick);
+		if (UHealthComponent* HealthComponent = Skully->FindComponentByClass<UHealthComponent>())
+		{
+			HealthComponent->LoseHealth(DamagePerTick);
+		}
+	}
+	else if (Gollem != nullptr)
+	{
+		if (UHealthComponent* HealthComponent = Gollem->FindComponentByClass<UHealthComponent>())
+		{
+			HealthComponent->LoseHealth(DamagePerTick);
+		}
 	}
 }

@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "Hazard.generated.h"
 
+class AGollemCharacter;
 class ASkully;
 class UBoxComponent;
 
@@ -45,5 +46,6 @@ private:
 	void DealDamageTick() const;
 	
 	TWeakObjectPtr<ASkully> OverlappingSkully;
+	TWeakObjectPtr<AGollemCharacter> OverlappingGollem;
 	FTimerHandle DamageTimerHandle;
 };

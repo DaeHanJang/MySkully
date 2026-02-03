@@ -22,6 +22,7 @@ public:
 	
 protected:
 	virtual void BeginPlay() override;
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 		
 	virtual void OnTakeDamage_Implementation() override;
 	virtual void OnDeath_Implementation() override;
@@ -30,5 +31,19 @@ protected:
 	virtual void InteractAction_Implementation() override;
 	virtual void PrimaryAction_Implementation() override;
 	virtual void SecondaryAction_Implementation() override;
+	UFUNCTION(BlueprintNativeEvent, Category = "Slap")
+	void StopSecondaryAction();
+	virtual void StopSecondaryAction_Implementation();
 	
+	virtual void StartSpawnFrontCamera() override;
+	virtual void EndSpawnFrontCamera() override;
+	virtual void BeginSpawnFrontCameraReturn() override;
+	virtual void TickSpawnFrontCameraReturn() override;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Punch")
+	bool bPunch = false;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Punch")
+	bool bChargeSlam = false;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Punch")
+	bool bSlam = false; 
 };
