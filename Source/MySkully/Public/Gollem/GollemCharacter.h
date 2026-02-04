@@ -23,6 +23,10 @@ public:
 	
 	FORCEINLINE bool GetOnClayMound() const { return bOnClayMound; }
 	FORCEINLINE void SetOnClayMound(bool Value) { bOnClayMound = Value; }
+	
+	UFUNCTION(BlueprintNativeEvent, Category = "Gollem|Action")
+	void DespawnAction();
+	virtual void DespawnAction_Implementation();
 
 protected:
 	virtual void BeginPlay() override;
@@ -31,7 +35,7 @@ protected:
 	virtual void UnPossessed() override;
 	virtual void PawnClientRestart() override;
 	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode = 0) override;
-	
+		
 	// Components
 	void ResolveOptionalComponents();
 	
@@ -50,7 +54,7 @@ protected:
 	virtual void BeginSpawnFrontCameraReturn();
 	virtual void TickSpawnFrontCameraReturn();
 	
-	// Collision
+	// Interaction Collision
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Gollem|Collision")
 	TObjectPtr<UBoxComponent> InteractionBox = nullptr;
 	

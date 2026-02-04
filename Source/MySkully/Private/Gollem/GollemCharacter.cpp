@@ -3,8 +3,10 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Components/BoxComponent.h"
+#include "Components/SphereComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Skully/Skully.h"
 #include "Skully/SkullyCameraComponent.h"
 
 class UEnhancedInputLocalPlayerSubsystem;
@@ -171,21 +173,21 @@ void AGollemCharacter::RemoveInputMappingContext()
 	}
 	
 	APlayerController* PC = Cast<APlayerController>(GetController());
-	if (PC != nullptr)
+	if (PC == nullptr)
 	{
 		bInputMappingContextApplied = false;
 		return;
 	}
 	
 	ULocalPlayer* LP = PC->GetLocalPlayer();
-	if (LP != nullptr)
+	if (LP == nullptr)
 	{
 		bInputMappingContextApplied = false;
 		return;
 	}
 	
 	UEnhancedInputLocalPlayerSubsystem* EILPS = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
-	if (EILPS != nullptr)
+	if (EILPS == nullptr)
 	{
 		bInputMappingContextApplied = false;
 		return;
@@ -266,6 +268,10 @@ void AGollemCharacter::PrimaryAction_Implementation()
 }
 
 void AGollemCharacter::SecondaryAction_Implementation()
+{
+}
+
+void AGollemCharacter::DespawnAction_Implementation()
 {
 }
 

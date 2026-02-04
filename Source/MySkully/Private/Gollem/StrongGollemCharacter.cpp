@@ -11,6 +11,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Hazard/Hazard.h"
 #include "Kismet/GameplayStatics.h"
+#include "Skully/Skully.h"
 #include "Skully/SkullyCameraComponent.h"
 
 AStrongGollemCharacter::AStrongGollemCharacter()
@@ -40,6 +41,9 @@ AStrongGollemCharacter::AStrongGollemCharacter()
 	InteractionBox->SetCollisionObjectType(ECC_WorldDynamic);
 	InteractionBox->SetCollisionResponseToAllChannels(ECR_Ignore);
 	InteractionBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	InteractionBox->SetGenerateOverlapEvents(true);
+	InteractionBox->OnComponentBeginOverlap.AddDynamic(this, &AStrongGollemCharacter::OnBoxComponentBeginOverlap);
+	InteractionBox->OnComponentEndOverlap.AddDynamic(this, &AStrongGollemCharacter::OnBoxComponentEndOverlap);
 	
 	// 스프링 암 생성
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -170,7 +174,16 @@ void AStrongGollemCharacter::InteractAction_Implementation()
 {
 	Super::InteractAction_Implementation();
 	
-	UE_LOG(LogTemp, Log, TEXT("[StrongGollem] InteractAction %s"), *GetName());
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (PC == nullptr)
+	{
+		return;
+	}
+	
+	GetCharacterMovement()->StopMovementImmediately();
+	
+	const FRotator FaceRot(0.0f, GetActorRotation().Yaw - 180.0f, 0.0f);
+	PC->SetControlRotation(FaceRot);
 }
 
 void AStrongGollemCharacter::PrimaryAction_Implementation()
@@ -185,6 +198,11 @@ void AStrongGollemCharacter::SecondaryAction_Implementation()
 	Super::SecondaryAction_Implementation();
 	
 	UE_LOG(LogTemp, Log, TEXT("[StrongGollem] SecondaryAction (Slam) %s"), *GetName());
+}
+
+void AStrongGollemCharacter::DespawnAction_Implementation()
+{
+	Super::DespawnAction_Implementation();
 }
 
 void AStrongGollemCharacter::StopSecondaryAction_Implementation()
@@ -266,6 +284,26 @@ void AStrongGollemCharacter::TickSpawnFrontCameraReturn()
 	if (Alpha >= 1.0f)
 	{
 		EndSpawnFrontCamera();
+	}
+}
+
+void AStrongGollemCharacter::OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Overlap Gollem Interaction Box"));
+	if (ASkully* Skully = Cast<ASkully>(OtherActor))
+	{
+		Skully->SetNearbyGollem(this);
+	}
+}
+
+void AStrongGollemCharacter::OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	UE_LOG(LogTemp, Warning, TEXT("End Overlap Gollem Interaction Box"));
+	if (ASkully* Skully = Cast<ASkully>(OtherActor))
+	{
+		Skully->ClearNearbyGollem(this);
 	}
 }
 

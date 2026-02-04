@@ -31,8 +31,13 @@ public:
 
 	FORCEINLINE bool GetOnClayMound() const { return bOnClayMound; }
 	FORCEINLINE void SetOnClayMound(bool Value) { bOnClayMound = Value; }
+	FORCEINLINE bool GetCanRide() const { return bCanRide; }
+	FORCEINLINE void SetCanRide(bool Value) { bCanRide = Value; }
 	FORCEINLINE const FVector& GetClayMoundSurfaceLocation() const { return ClayMountSurfaceLocation; }
 	FORCEINLINE void SetClayMoundSurfaceLocation(const FVector& Location) { ClayMountSurfaceLocation = Location;}
+	
+	void SetNearbyGollem(AGollemCharacter* Gollem);
+	void ClearNearbyGollem(AGollemCharacter* Gollem); 
 	
 protected:
 	virtual void BeginPlay() override;
@@ -70,6 +75,7 @@ protected:
 	
 	// Transform
 	void TransformToGollem(TSubclassOf<AGollemCharacter> GollemClass);
+	void RideGollem(AGollemCharacter* Gollem);
 	
 public:
 	// Initialize
@@ -80,6 +86,12 @@ public:
 	void ShowSkully();
 	// Set Skully_clay Scale
 	void SetSkully_ClayScale(float Scale);
+	
+	// Transform Skully
+	UFUNCTION(BlueprintCallable)
+	void ReturnFromGollem(AGollemCharacter* FromGollem);
+	UFUNCTION(BlueprintCallable)
+	void ReturnFromGollemDespawn(AGollemCharacter* FromGollem);
 	
 private:
 	// Collision
@@ -137,13 +149,8 @@ private:
 	TSubclassOf<AGollemCharacter> StrongGollemClass;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Transform", meta = (AllowPrivateAccess="true"))
 	TSubclassOf<AGollemCharacter> SwiftGollemClass;
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Transform", meta = (AllowPrivateAccess="true"))
 	TObjectPtr<AGollemCharacter> CurrentGollem;
-	
-	
-	// Cache
-	TEnumAsByte<ECollisionEnabled::Type> CachedSphereCollision; // 콜리전 상태 저장 
-	FName CachedCollisionProfileName; // 콜리전 프로파일 저장
 	
 	// Health
 	FTimerHandle HealTimerHandle; // 힐 타이머
@@ -153,11 +160,14 @@ private:
 	bool bIsInClayMoundInteraction = false; // 웅덩이에서 상호작용 중인지
 	bool bTransitioningClayMound = false; // 웅덩이에서 연출 중인지
 	bool bClayMoundSubmerged = false; // 웅덩이 잠수/부상 상태
-	bool bClayBaseLocked = false;
+	bool bClayBaseLocked = false; // 웅덩이 상호작용 최초 플래그
 	FVector ClayMountSurfaceLocation = FVector::ZeroVector; // 웅덩이 표면 위치
 	FTimerHandle ClayTransitionTimerHandle; // 웅덩이 연출 타이머
 	float ClayAlpha = 0.0f; // 웅덩이 연출 보간값
 	
 	// Transform
 	bool bCanTransform = false; // 변신 가능 플래그
+	bool bCanRide = false; // 골렘 타기 가능 플래그
+	UPROPERTY()
+	TWeakObjectPtr<AGollemCharacter> NearbyGollem; // 감지된 골렘
 };

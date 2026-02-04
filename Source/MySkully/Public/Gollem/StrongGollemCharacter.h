@@ -13,12 +13,17 @@ class MYSKULLY_API AStrongGollemCharacter : public AGollemCharacter, public IHea
 public:
 	AStrongGollemCharacter();
 	
+	UFUNCTION(BlueprintCallable, Category = "Gollem|Puddle")
+	FORCEINLINE bool GetOnClayMound() const { return bOnClayMound; }
+	
 	// Camera Box Component
 	UFUNCTION()
 	virtual void OnCameraBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, 
 								   int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	UFUNCTION()
 	virtual void OnCameraBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+	UFUNCTION(BlueprintCallable, Category = "Gollem|Action")
+	virtual void DespawnAction_Implementation() override;
 	
 protected:
 	virtual void BeginPlay() override;
@@ -40,10 +45,20 @@ protected:
 	virtual void BeginSpawnFrontCameraReturn() override;
 	virtual void TickSpawnFrontCameraReturn() override;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Punch")
+	UFUNCTION()
+	virtual void OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	UFUNCTION()
+	virtual void OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+	
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Punch")
 	bool bPunch = false;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Punch")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Punch")
 	bool bChargeSlam = false;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Punch")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Punch")
 	bool bSlam = false; 
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Slam")
+	float Charge = 0.0f;
+	
 };

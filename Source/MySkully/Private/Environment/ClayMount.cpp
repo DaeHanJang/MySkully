@@ -25,7 +25,7 @@ AClayMount::AClayMount()
 	// 상호작용 감지 콜라이더 생성
 	BoxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComponent"));
 	BoxComponent->SetupAttachment(RootComponent);
-	BoxComponent->SetBoxExtent(FVector(350.0f, 350.0f, 400.0f));
+	BoxComponent->SetBoxExtent(FVector(300.0f, 300.0f, 400.0f));
 	BoxComponent->SetRelativeLocation(FVector(0.0f, 0.0f, -350.0f));
 	BoxComponent->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	BoxComponent->SetGenerateOverlapEvents(true);
