@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "Hazard.generated.h"
 
+class UPostProcessComponent;
 class AGollemCharacter;
 class ASkully;
 class UBoxComponent;
@@ -16,36 +17,33 @@ class MYSKULLY_API AHazard : public AActor
 public:	
 	AHazard();
 
-protected:
-	virtual void BeginPlay() override;
-	
+protected:	
 	UFUNCTION()
-	virtual void OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, 
-								   int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-	
+	void OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	UFUNCTION()
 	void OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 	
 private:
-	// Collision
+	// Health
+	void DealDamage() const;
+	
+private:
+	// Collision(Root)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess="true"))
-	UBoxComponent* BoxComponent;
+	TObjectPtr<UBoxComponent> CollisionComponent;
 
 	// Mesh
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh", meta = (AllowPrivateAccess="true"))
-	UStaticMeshComponent* PlaneMesh;
+	TObjectPtr<UStaticMeshComponent> SurfaceMesh;
 
-	// 데미지
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Damage", meta = (AllowPrivateAccess="true"))
-	float DamagePerTick = 25.0f;
-	// 데미지 간격
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Damage", meta = (AllowPrivateAccess="true"))
-	float DamageTickInterval = 1.0f;
+	// Post Process
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PostProcess", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UPostProcessComponent> OverlapPostProcess;
 	
-private:
-	void DealDamageTick() const;
-	
-	TWeakObjectPtr<ASkully> OverlappingSkully;
-	TWeakObjectPtr<AGollemCharacter> OverlappingGollem;
+	// Health
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Health", meta = (AllowPrivateAccess="true"))
+	float Damage = 25.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Health", meta = (AllowPrivateAccess="true"))
+	float DamageInterval = 1.0f;
 	FTimerHandle DamageTimerHandle;
 };

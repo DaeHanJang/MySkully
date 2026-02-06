@@ -3,10 +3,8 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Components/BoxComponent.h"
-#include "Components/SphereComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Skully/Skully.h"
 #include "Skully/SkullyCameraComponent.h"
 
 class UEnhancedInputLocalPlayerSubsystem;
@@ -84,31 +82,6 @@ void AGollemCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	if (IA_Secondary != nullptr)
 	{
 		EIC->BindAction(IA_Secondary, ETriggerEvent::Started, this, &AGollemCharacter::Secondary);
-	}
-}
-
-void AGollemCharacter::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode)
-{
-	Super::OnMovementModeChanged(PrevMovementMode, PreviousCustomMode);
-	
-	auto* MoveComp = GetCharacterMovement();
-	if (MoveComp == nullptr)
-	{
-		return;
-	}
-	
-	const EMovementMode NewMode = MoveComp->MovementMode;
-	
-	if (NewMode == MOVE_Falling)
-	{
-		bDescendingGravityApplied = false;
-		MoveComp->GravityScale = GravityScaleAscending;
-		StartFallingMonitor();
-	}
-	else if (PrevMovementMode == MOVE_Falling)
-	{
-		StopFallingMonitor();
-		MoveComp->GravityScale = GravityScaleGrounded;
 	}
 }
 
@@ -273,6 +246,31 @@ void AGollemCharacter::SecondaryAction_Implementation()
 
 void AGollemCharacter::DespawnAction_Implementation()
 {
+}
+
+void AGollemCharacter::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode)
+{
+	Super::OnMovementModeChanged(PrevMovementMode, PreviousCustomMode);
+	
+	auto* MoveComp = GetCharacterMovement();
+	if (MoveComp == nullptr)
+	{
+		return;
+	}
+	
+	const EMovementMode NewMode = MoveComp->MovementMode;
+	
+	if (NewMode == MOVE_Falling)
+	{
+		bDescendingGravityApplied = false;
+		MoveComp->GravityScale = GravityScaleAscending;
+		StartFallingMonitor();
+	}
+	else if (PrevMovementMode == MOVE_Falling)
+	{
+		StopFallingMonitor();
+		MoveComp->GravityScale = GravityScaleGrounded;
+	}
 }
 
 void AGollemCharacter::StartFallingMonitor()

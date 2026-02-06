@@ -9,22 +9,20 @@ class MYSKULLY_API ASkullyGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
 	
-public:
-	ASkullyGameMode();
-	
-	// Save
-	FORCEINLINE FVector GetSaveLocation() const { return SaveLocation; }
-	FORCEINLINE void SetSaveLocation(const FVector& Location) { SaveLocation = Location; }
+public:	
+	FORCEINLINE const FVector& GetSkullyRespawnLocation() const { return SkullyRespawnLocation; }
+	FORCEINLINE void SetSkullyRespawnLocation(const FVector& Location) { SkullyRespawnLocation = Location; }
 	FORCEINLINE uint8 GetSaveIndex() const { return SaveIndex; }
 	FORCEINLINE void SetSaveIndex(uint8 Index) { SaveIndex = Index; }
 	
-	// Rewpawn
+	// Respawn
 	void RespawnPlayer();
 	
 private:
 	// Save
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Save", meta = (AllowPrivateAccess="true"))
-	FVector SaveLocation = FVector::ZeroVector;
+	FVector SkullyRespawnLocation = FVector::ZeroVector;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Save", meta = (AllowPrivateAccess="true"))
 	uint8 SaveIndex = 0;
+	
 };

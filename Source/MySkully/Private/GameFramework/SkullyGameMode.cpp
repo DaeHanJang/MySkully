@@ -3,19 +3,24 @@
 #include "Kismet/GameplayStatics.h"
 #include "Skully/Skully.h"
 
-ASkullyGameMode::ASkullyGameMode()
-{
-}
-
 void ASkullyGameMode::RespawnPlayer()
 {
-	if (ASkully* Skully = Cast<ASkully>(UGameplayStatics::GetPlayerPawn(this, 0)))
+	ASkully* Skully = Cast<ASkully>(UGameplayStatics::GetPlayerPawn(this, 0));
+	if (Skully == nullptr)
 	{
-		if (SaveIndex == 0)
-		{
-			SaveLocation = FindPlayerStart(GetWorld()->GetFirstPlayerController(), TEXT("Init"))->GetActorLocation() + FVector(0.0f, 0.0f, 350.0f);
-		}
-		Skully->SetActorLocation(SaveLocation);
-		Skully->InitState();
-	} 
+		return;
+	}
+	
+	// 세이브 지점이 없을 때
+	if (SaveIndex <= 0)
+	{
+		const FVector PlayerStartLocation = FindPlayerStart(UGameplayStatics::GetPlayerController(this, 0), TEXT("Init"))->GetActorLocation() + FVector(0.0f, 0.0f, 350.0f);
+		Skully->SetActorLocationAndRotation(PlayerStartLocation, FRotator::ZeroRotator);
+	}
+	// 세이브 지점이 있을 때
+	else
+	{
+		Skully->SetActorLocationAndRotation(SkullyRespawnLocation, FRotator::ZeroRotator);
+	}
+	Skully->Init();
 }

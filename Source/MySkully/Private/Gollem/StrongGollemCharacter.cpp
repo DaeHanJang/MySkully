@@ -49,7 +49,7 @@ AStrongGollemCharacter::AStrongGollemCharacter()
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(GetRootComponent());
 	CameraBoom->bUsePawnControlRotation = true;
-	CameraBoom->TargetArmLength = 3000.0f;
+	CameraBoom->TargetArmLength = 1800.0f;
 	
 	// 카메라 생성
 	FollowCamera = CreateDefaultSubobject<USkullyCameraComponent>(TEXT("FollowCamera"));
@@ -107,6 +107,81 @@ void AStrongGollemCharacter::BeginPlay()
 	{
 		CameraBoom->TargetArmLength = 3000.0f;
 	}
+}
+
+void AStrongGollemCharacter::StartSpawnFrontCamera()
+{
+	Super::StartSpawnFrontCamera();
+	
+	if (CameraBoom == nullptr || bSpawnCamActive == true)
+	{
+		return;
+	}
+	
+	bSpawnCamActive = true;
+	bSpawnCamReturning = false;
+	
+	CachedBoomRot = CameraBoom->GetRelativeRotation();
+	
+	SpawnFrontRot = CachedBoomRot;
+	SpawnFrontRot.Yaw += 180.0f;
+	
+	CameraBoom->bUsePawnControlRotation = false;
+	CameraBoom->SetRelativeRotation(SpawnFrontRot);
+	
+	GetWorldTimerManager().SetTimer(SpawnCamTimerHandler, this, &AStrongGollemCharacter::BeginSpawnFrontCameraReturn, 2.0f, false);
+}
+void AStrongGollemCharacter::BeginSpawnFrontCameraReturn()
+{
+	Super::BeginSpawnFrontCameraReturn();
+	
+	if (CameraBoom == nullptr || bSpawnCamActive == false)
+	{
+		return;
+	}
+	
+	bSpawnCamReturning = true;
+	SpawnCamReturnElapsed = 0.0f;
+	
+	GetWorldTimerManager().ClearTimer(SpawnCamTimerHandler);
+	GetWorldTimerManager().SetTimer(SpawnCamReturnTimerHandler, this, &AStrongGollemCharacter::TickSpawnFrontCameraReturn, 0.016f, true);
+}
+void AStrongGollemCharacter::TickSpawnFrontCameraReturn()
+{
+	Super::TickSpawnFrontCameraReturn();
+	
+	if (CameraBoom == nullptr || bSpawnCamActive == false)
+	{
+		EndSpawnFrontCamera();
+		return;
+	}
+	
+	SpawnCamReturnElapsed += 0.016f;
+	const float Alpha = FMath::Clamp(SpawnCamReturnElapsed / FMath::Max(0.5f, KINDA_SMALL_NUMBER), 0.0f, 1.0f);
+	const float SmoothAlpha = FMath::InterpEaseInOut(0.0f, 1.0f, Alpha, 2.0f);
+	
+	const FRotator NewRot = FMath::Lerp(SpawnFrontRot, CachedBoomRot, SmoothAlpha);
+	CameraBoom->SetRelativeRotation(NewRot);
+	
+	if (Alpha >= 1.0f)
+	{
+		EndSpawnFrontCamera();
+	}
+}
+void AStrongGollemCharacter::EndSpawnFrontCamera()
+{
+	Super::EndSpawnFrontCamera();
+	
+	if (CameraBoom == nullptr || bSpawnCamActive == false)
+	{
+		return;
+	}
+	
+	bSpawnCamReturning = false;
+	bSpawnCamActive = false;
+	
+	CameraBoom->SetRelativeRotation(CachedBoomRot);
+	CameraBoom->bUsePawnControlRotation = true;
 }
 
 void AStrongGollemCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -209,91 +284,13 @@ void AStrongGollemCharacter::StopSecondaryAction_Implementation()
 {
 }
 
-void AStrongGollemCharacter::StartSpawnFrontCamera()
-{
-	Super::StartSpawnFrontCamera();
-	
-	if (CameraBoom == nullptr || bSpawnCamActive == true)
-	{
-		return;
-	}
-	
-	bSpawnCamActive = true;
-	bSpawnCamReturning = false;
-	
-	CachedBoomRot = CameraBoom->GetRelativeRotation();
-	
-	SpawnFrontRot = CachedBoomRot;
-	SpawnFrontRot.Yaw += 180.0f;
-	
-	CameraBoom->bUsePawnControlRotation = false;
-	CameraBoom->SetRelativeRotation(SpawnFrontRot);
-	
-	GetWorldTimerManager().SetTimer(SpawnCamTimerHandler, this, &AStrongGollemCharacter::BeginSpawnFrontCameraReturn, 2.0f, false);
-}
-
-void AStrongGollemCharacter::EndSpawnFrontCamera()
-{
-	Super::EndSpawnFrontCamera();
-	
-	if (CameraBoom == nullptr || bSpawnCamActive == false)
-	{
-		return;
-	}
-	
-	bSpawnCamReturning = false;
-	bSpawnCamActive = false;
-	
-	CameraBoom->SetRelativeRotation(CachedBoomRot);
-	CameraBoom->bUsePawnControlRotation = true;
-}
-
-void AStrongGollemCharacter::BeginSpawnFrontCameraReturn()
-{
-	Super::BeginSpawnFrontCameraReturn();
-	
-	if (CameraBoom == nullptr || bSpawnCamActive == false)
-	{
-		return;
-	}
-	
-	bSpawnCamReturning = true;
-	SpawnCamReturnElapsed = 0.0f;
-	
-	GetWorldTimerManager().ClearTimer(SpawnCamTimerHandler);
-	GetWorldTimerManager().SetTimer(SpawnCamReturnTimerHandler, this, &AStrongGollemCharacter::TickSpawnFrontCameraReturn, 0.016f, true);
-}
-
-void AStrongGollemCharacter::TickSpawnFrontCameraReturn()
-{
-	Super::TickSpawnFrontCameraReturn();
-	
-	if (CameraBoom == nullptr || bSpawnCamActive == false)
-	{
-		EndSpawnFrontCamera();
-		return;
-	}
-	
-	SpawnCamReturnElapsed += 0.016f;
-	const float Alpha = FMath::Clamp(SpawnCamReturnElapsed / FMath::Max(0.5f, KINDA_SMALL_NUMBER), 0.0f, 1.0f);
-	const float SmoothAlpha = FMath::InterpEaseInOut(0.0f, 1.0f, Alpha, 2.0f);
-	
-	const FRotator NewRot = FMath::Lerp(SpawnFrontRot, CachedBoomRot, SmoothAlpha);
-	CameraBoom->SetRelativeRotation(NewRot);
-	
-	if (Alpha >= 1.0f)
-	{
-		EndSpawnFrontCamera();
-	}
-}
-
 void AStrongGollemCharacter::OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Overlap Gollem Interaction Box"));
 	if (ASkully* Skully = Cast<ASkully>(OtherActor))
 	{
-		Skully->SetNearbyGollem(this);
+		//Skully->SetNearbyGollem(this);
 	}
 }
 
@@ -303,7 +300,7 @@ void AStrongGollemCharacter::OnBoxComponentEndOverlap(UPrimitiveComponent* Overl
 	UE_LOG(LogTemp, Warning, TEXT("End Overlap Gollem Interaction Box"));
 	if (ASkully* Skully = Cast<ASkully>(OtherActor))
 	{
-		Skully->ClearNearbyGollem(this);
+		//Skully->ClearNearbyGollem(this);
 	}
 }
 
