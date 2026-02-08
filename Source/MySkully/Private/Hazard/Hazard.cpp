@@ -27,7 +27,7 @@ AHazard::AHazard()
 	{
 		SurfaceMesh->SetStaticMesh(PlaneMeshAsset.Object);
 		SurfaceMesh->SetupAttachment(RootComponent);
-		SurfaceMesh->SetRelativeLocation(FVector(0.0f, 0.0f, CollisionComponent->GetScaledBoxExtent().Z + 2.0f));
+		SurfaceMesh->SetRelativeLocation(FVector(0.0f, 0.0f, CollisionComponent->GetScaledBoxExtent().Z + 10.0f));
 		SurfaceMesh->SetRelativeScale3D(FVector(50.0f, 50.0f, 10.0f));
 		SurfaceMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		SurfaceMesh->PrimaryComponentTick.bCanEverTick = false;
@@ -80,7 +80,7 @@ void AHazard::OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AA
 		else if (PlayerCamera != nullptr && OtherComp == PlayerCamera->GetCameraCollision())
 		{
 			OverlapPostProcess->BlendWeight = 1.0f;
-		}		
+		}
 	}
 }
 

@@ -2,10 +2,10 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
-#include "ANFinishPunch.generated.h"
+#include "AN_FinishEat.generated.h"
 
 UCLASS()
-class MYSKULLY_API UANFinishPunch : public UAnimNotify
+class MYSKULLY_API UAN_FinishEat : public UAnimNotify
 {
 	GENERATED_BODY()
 	

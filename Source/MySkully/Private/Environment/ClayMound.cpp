@@ -25,10 +25,8 @@ AClayMound::AClayMound()
 	InteractionCollision->SetupAttachment(RootComponent);
 	InteractionCollision->SetBoxExtent(FVector(300.0f, 300.0f, 400.0f));
 	InteractionCollision->SetRelativeLocation(FVector(0.0f, 0.0f, -350.0f));
-	InteractionCollision->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+	InteractionCollision->SetCollisionProfileName(TEXT("OverlapAll"));
 	InteractionCollision->SetGenerateOverlapEvents(true);
-	InteractionCollision->OnComponentBeginOverlap.AddDynamic(this, &AClayMound::OnBoxComponentBeginOverlap);
-	InteractionCollision->OnComponentEndOverlap.AddDynamic(this, &AClayMound::OnBoxComponentEndOverlap);
 	InteractionCollision->PrimaryComponentTick.bCanEverTick = false;
 	
 	// 블록 콜리전 피벗

@@ -5,7 +5,11 @@
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/SkullyPlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Golem/Animation/GolemAnimInstance.h"
+#include "Kismet/GameplayStatics.h"
+#include "Skully/Skully.h"
 
 AStrongGolem::AStrongGolem()
 {
@@ -29,6 +33,13 @@ AStrongGolem::AStrongGolem()
 		GetMesh()->SetRelativeLocation(FVector(-100.0f, 0.0f, -390.0f));
 		GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		GetMesh()->PrimaryComponentTick.bAllowTickBatching = false;
+		// 애니메이션
+		static ConstructorHelpers::FClassFinder<UAnimInstance> AnimClass(TEXT("/Game/Character/Strong/Animation/APB_StrongGolem.APB_StrongGolem_C"));
+		if (AnimClass.Succeeded() == true)
+		{
+			GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+			GetMesh()->SetAnimInstanceClass(AnimClass.Class);
+		}
 	}
 	
 	// 스프링 암
@@ -41,6 +52,24 @@ AStrongGolem::AStrongGolem()
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 320.0f, 0.0f);
 	GetCharacterMovement()->MaxWalkSpeed = 1400.0f;
 	GetCharacterMovement()->JumpZVelocity = 1500.0f;
+}
+
+void AStrongGolem::PossessedBy(AController* NewController)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Golem PossessedBy: New=%s"), *GetNameSafe(NewController));
+	
+	Super::PossessedBy(NewController);
+	
+	UE_LOG(LogTemp, Warning, TEXT("Golem PossessedBy after Super. bExist=%d"), bExist);
+	
+	if (bExist == false)
+	{
+		bExist = true;
+	}
+	else
+	{
+		Eat();
+	}
 }
 
 void AStrongGolem::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -78,6 +107,31 @@ void AStrongGolem::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 void AStrongGolem::DismountAction_Implementation()
 {
 	Super::DismountAction_Implementation();
+	
+	UGolemAnimInstance* AnimInst =  Cast<UGolemAnimInstance>(GetMesh()->GetAnimInstance());
+	if (AnimInst == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][DismountAction_Implementation] GolemAnimInstance = nullptr"));
+	}
+	else
+	{
+		AnimInst->SetDismount(true);
+	}
+}
+
+void AStrongGolem::DespawnAction_Implementation()
+{
+	Super::DespawnAction_Implementation();
+	
+	UGolemAnimInstance* AnimInst =  Cast<UGolemAnimInstance>(GetMesh()->GetAnimInstance());
+	if (AnimInst == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][DespawnAction_Implementation] GolemAnimInstance = nullptr"));
+	}
+	else
+	{
+		AnimInst->SetDespawn(true);
+	}
 }
 
 void AStrongGolem::PrimaryAction_Implementation()
@@ -92,6 +146,11 @@ void AStrongGolem::PrimaryAction_Implementation()
 	if (bSlam == true)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][PrimaryAction_Implementation] bSlam = true"));
+		return;
+	}
+	if (PunchMontage == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][PrimaryAction_Implementation] PunchMontage = nullptr"));
 		return;
 	}
 	
@@ -127,6 +186,11 @@ void AStrongGolem::SecondaryAction_Implementation()
 		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][SecondaryAction_Implementation] bSlam = true"));
 		return;
 	}
+	if (SlamStartMontage == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][SecondaryAction_Implementation] SlamStartMontage = nullptr"));
+		return;
+	}
 	
 	bSlam = true;
 	PlayAnimMontage(SlamStartMontage);
@@ -144,17 +208,51 @@ void AStrongGolem::StopSecondary(const FInputActionValue& Value)
 		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][StopSecondary] bSlam = false"));
 		return;
 	}
-	if (bSlamEnding == true)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][StopSecondary] bSlamEnding = false"));
-		return;
-	}
 	if (GetMesh()->GetAnimInstance()->Montage_GetCurrentSection(GetCurrentMontage()) == TEXT("End"))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][StopSecondary] CurrentMontage is Slam And Section Name is End"));
+		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][StopSecondary] Already CurrentMontage is EndSlam And Section Name is End"));
+		return;
+	}
+	if (bSlamEnding == true)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][StopSecondary] bSlamEnding = true"));
 		return;
 	}
 	
 	StopAnimMontage(GetCurrentMontage());
 	PlayAnimMontage(SlamEndMontage, 1.0f, TEXT("End"));
+}
+
+
+void AStrongGolem::Eat()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Golem Eat called"));
+	Super::Eat();
+	
+	if (EatMontage == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][Eat] EatMontage = nullptr"));
+		return;
+	}
+	
+	ASkullyPlayerController* PC = Cast<ASkullyPlayerController>(UGameplayStatics::GetPlayerController(this, 0));
+	if (PC == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][Eat] SkullyPlayerController = nullptr"));
+		return;
+	}
+	
+	const FVector DirToSkully = (PC->GetSkully()->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+	const float Dot = FVector::DotProduct(GetActorForwardVector(), DirToSkully);
+	
+	PC->GetSkully()->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, TEXT("L_DUMMY_JNTSocket"));
+	
+	if (Dot >= 0.0f)
+	{
+		PlayAnimMontage(EatMontage, 1.0f, TEXT("Front"));
+	}
+	else
+	{
+		PlayAnimMontage(EatMontage, 1.0f, TEXT("Back"));
+	}
 }

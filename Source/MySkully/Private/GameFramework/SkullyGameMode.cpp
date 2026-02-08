@@ -1,7 +1,12 @@
 #include "GameFramework/SkullyGameMode.h"
 
+#include "GameFramework/SkullyPlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "Skully/Skully.h"
+
+ASkullyGameMode::ASkullyGameMode()
+{
+}
 
 void ASkullyGameMode::RespawnPlayer()
 {

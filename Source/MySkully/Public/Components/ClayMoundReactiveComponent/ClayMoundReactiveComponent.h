@@ -15,6 +15,7 @@ public:
 	FORCEINLINE bool GetOnClayMoundSurface() const { return bOnClayMoundSurface; }
 	void SetOnClayMoundSurface(const bool Value, const FVector& SurfaceLocation);
 	FORCEINLINE const FVector& GetClayMoundSurfaceLocation() const { return ClayMoundSurfaceLocation; }
+	FORCEINLINE void SetClayMoundSurfaceLocation(const FVector& Location) { ClayMoundSurfaceLocation = Location; }
 	
 private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ClayMound", meta = (AllowPrivateAccess = true))

@@ -2,10 +2,10 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
-#include "ANSChargeSlam.generated.h"
+#include "ANS_Despawn.generated.h"
 
 UCLASS()
-class MYSKULLY_API UANSChargeSlam : public UAnimNotifyState
+class MYSKULLY_API UANS_Despawn : public UAnimNotifyState
 {
 	GENERATED_BODY()
 	
@@ -14,5 +14,6 @@ private:
 	virtual void NotifyTick(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float FrameDeltaTime, const FAnimNotifyEventReference& EventReference) override;
 	virtual void NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
 	
-	float ChargeTime = 0.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation, meta = (AllowPrivateAccess="true"))
+	float DownSpeed = 1.0f;
 };

@@ -21,12 +21,11 @@ void UClayMoundReactiveComponent::SetOnClayMoundSurface(const bool Value, const 
 	
 	if (bOnClayMoundSurface == true)
 	{
-		ClayMoundSurfaceLocation = SurfaceLocation + FVector(0.0f, 0.0f, 5.0f);
+		ClayMoundSurfaceLocation = SurfaceLocation + FVector(0.0f, 0.0f, 100.0f);
 		IClayMoundReactiveInterface::Execute_OnEnterClayMound(GetOwner());
 	}
 	else
 	{
-		ClayMoundSurfaceLocation = FVector::ZeroVector;
 		IClayMoundReactiveInterface::Execute_OnExitClayMound(GetOwner());
 	}
 }

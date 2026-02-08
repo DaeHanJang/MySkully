@@ -32,18 +32,18 @@ public:
 	ASkully();
 
 	FORCEINLINE bool GetCanRide() const { return bCanRide; }
-	FORCEINLINE void SetCanRide(bool Value) { bCanRide = Value; }
+	FORCEINLINE void SetCanRide(const bool Value) { bCanRide = Value; }
+	FORCEINLINE AGolemCharacter* GetNearbyGolem() const { return NearbyGolem; }
+	FORCEINLINE void SetNearbyGolem(AGolemCharacter* NewGolem) { NearbyGolem = NewGolem; }
 	
 	// Helper
 	void Init() const;
+	void HideSkully(const bool bNoCollision = true, const bool bMesh = true) const;
+	void ShowSkully(const bool bCollision = true, const bool bMovementComp = true, const bool bMesh = true) const;
 	
 	// Transform
-	void SetNearbyGolem(AGolemCharacter* Golem);
-	void ClearNearbyGolem(AGolemCharacter* Golem);
-	// UFUNCTION(BlueprintCallable)
-	// void ReturnFromGolem(AGolemCharacter* FromGolem);
-	// UFUNCTION(BlueprintCallable)
-	// void ReturnFromGolemDespawn(AGolemCharacter* FromGolem);
+	void DismountGolem(const float ZOffset);
+	void DespawnGolem();
 	
 protected:
 	virtual void BeginPlay() override;
@@ -61,10 +61,6 @@ protected:
 	virtual void OnExitClayMound_Implementation() override;
 	
 private:
-	// Helper
-	void HideSkully(const bool bNoCollision = true, const bool bMesh = true) const;
-	void ShowSkully() const;
-	
 	// Camera
 	void UpdateCameraFOVFromSpeed(float DeltaTime, float Speed, FVector Dir) const;
 	
@@ -83,7 +79,7 @@ private:
 	void UpdateClayMoundTransition();
 	
 	// Transform
-	void TransformToGolem(const TSubclassOf<AGolemCharacter> GolemClass);
+	void TransformToGolem(const TSubclassOf<AGolemCharacter> GolemClass, const float ZOffset);
 	void RideGolem(AGolemCharacter* Golem);
 	
 private:
@@ -159,10 +155,11 @@ private:
 	TSubclassOf<AGolemCharacter> StrongGolemClass;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Transform", meta = (AllowPrivateAccess="true"))
 	TSubclassOf<AGolemCharacter> SwiftGolemClass;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Transform", meta = (AllowPrivateAccess="true"))
+	
+	UPROPERTY()
 	TObjectPtr<AGolemCharacter> CurrentGolem;
 	UPROPERTY()
-	TWeakObjectPtr<AGolemCharacter> NearbyGolem;
+	AGolemCharacter* NearbyGolem;
 	bool bCanTransform = false;
 	bool bCanRide = false;
 	

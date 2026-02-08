@@ -8,6 +8,7 @@
 #include "Components/ClayMoundReactiveComponent/ClayMoundReactiveComponent.h"
 #include "Components/HealthComponent/HealthComponent.h"
 #include "GameFramework/SkullyGameMode.h"
+#include "GameFramework/SkullyPlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Golem/GolemCharacter.h"
 #include "Kismet/GameplayStatics.h"
@@ -95,7 +96,7 @@ ASkully::ASkully()
 	// 웅덩이 상호작용 컴포넌트
 	ClayMoundReactiveComponent = CreateDefaultSubobject<UClayMoundReactiveComponent>(TEXT("ClayMoundReactiveComponent"));
 	ClayMoundReactiveComponent->PrimaryComponentTick.bCanEverTick = false;
-			
+	
 	// 폰 설정
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
 	bUseControllerRotationPitch = false;
@@ -106,6 +107,16 @@ ASkully::ASkully()
 void ASkully::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	ASkullyPlayerController* PC = Cast<ASkullyPlayerController>(GetController());
+	if (PC == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][BeginPlay] SkullyPlayerController = nullptr"));
+	}
+	else
+	{
+		PC->SetSkully(this);
+	}
 	
 	if (SkullyMovementComponent == nullptr)
 	{
@@ -145,6 +156,8 @@ void ASkully::PossessedBy(AController* NewController)
 
 void ASkully::UnPossessed()
 {
+	UE_LOG(LogTemp, Warning, TEXT("Skully UnPossessed"));
+	
 	const APlayerController* PC = Cast<APlayerController>(GetController());
 	if (PC == nullptr)
 	{
@@ -466,7 +479,7 @@ void ASkully::TransformStrongGolem(const FInputActionValue& Value)
 		return;
 	}
 	
-	TransformToGolem(StrongGolemClass);
+	TransformToGolem(StrongGolemClass, 450.0f);
 }
 void ASkully::TransformSwiftGolem(const FInputActionValue& Value)
 {
@@ -476,9 +489,9 @@ void ASkully::TransformSwiftGolem(const FInputActionValue& Value)
 		return;
 	}
 	
-	TransformToGolem(SwiftGolemClass);
+	TransformToGolem(SwiftGolemClass, 400.0f);
 }
-void ASkully::TransformToGolem(const TSubclassOf<AGolemCharacter> GolemClass)
+void ASkully::TransformToGolem(const TSubclassOf<AGolemCharacter> GolemClass, const float ZOffset)
 {
 	if (GolemClass == nullptr)
 	{
@@ -487,23 +500,26 @@ void ASkully::TransformToGolem(const TSubclassOf<AGolemCharacter> GolemClass)
 	}
 	if (CurrentGolem != nullptr)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][TransformToGolem] CurrentGolem != nullptr"));
 		return;
 	}
 	
 	bCanTransform = false;
 	bClayMoundInteraction = false;
 	bDescendingIntoClayMound = false;
+	ClayMoundTransitionAlpha = 0.0f;
 	if (GetWorldTimerManager().IsTimerActive(HealTimerHandle) == true)
 	{
 		GetWorldTimerManager().ClearTimer(HealTimerHandle);
 	}
+	ClayMoundReactiveComponent->SetOnClayMoundSurface(false, FVector::ZeroVector);
 	CameraBoom->ProbeChannel = ECC_Camera;
 	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 	PC->PlayerCameraManager->ViewPitchMin = -89.9f;
 	PC->PlayerCameraManager->ViewPitchMax = 89.9f;
-		
+	
 	FVector SpawnLocation = ClayMoundReactiveComponent->GetClayMoundSurfaceLocation();
-	SpawnLocation.Z += 300.0f;
+	SpawnLocation.Z += ZOffset;
 	const FRotator SpawnRotation = FRotator(0.0f, PC->GetControlRotation().Yaw, 0.0f);
 	FActorSpawnParameters Params;
 	Params.Owner = PC;
@@ -528,172 +544,24 @@ void ASkully::GolemInteract(const FInputActionValue& Value)
 		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][GolemInteract] bCanRide = false"));
 		return;
 	}
-}
-
-/*
-void ASkully::ReturnFromGolemDespawn(AGollemCharacter* FromGollem)
-{
-	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-	if (PC == nullptr)
+	if (NearbyGolem == nullptr)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][GolemInteract] NearbyGolem == nullptr"));
 		return;
 	}
-	
-	if (GetWorldTimerManager().IsTimerActive(HealTimerHandle))
+	if (bClayMoundInteraction == true)
 	{
-		GetWorldTimerManager().ClearTimer(HealTimerHandle);
-	}
-	if (GetWorldTimerManager().IsTimerActive(ClayTransitionTimerHandle))
-	{
-		GetWorldTimerManager().ClearTimer(ClayTransitionTimerHandle);
-	}
-	
-	bIsInClayMoundInteraction = false;
-	bTransitioningClayMound = false;
-	bClayMoundSubmerged = false;
-	bCanTransform = false;
-	bClayBaseLocked = false;
-	
-	ClayAlpha = 0.0f;
-	
-	if (CameraSpringArm)
-	{
-		CameraSpringArm->ProbeChannel = ECC_Camera;
-	}
-	
-	PC->PlayerCameraManager->ViewPitchMin = -89.9f;
-	PC->PlayerCameraManager->ViewPitchMax = 89.9f;
-	
-	ShowSkully();
-	
-	FVector TargetLoc = FromGollem->GetActorLocation();
-	TargetLoc.Z += 800.0f;
-	SetActorLocation(TargetLoc, false, nullptr, ETeleportType::TeleportPhysics);
-	SetActorRotation(FRotator(0.0f, PC->GetControlRotation().Yaw, 0.0f));
-	
-	if (SkullyMovementComponent != nullptr)
-	{
-		SkullyMovementComponent->StopMovementImmediately();
-	}
-	PC->Possess(this);
-	
-	if (CurrentGollem == FromGollem)
-	{
-		CurrentGollem = nullptr;
-	}
-}
-void ASkully::RideGolem(AGollemCharacter* Gollem)
-{
-	if (Gollem == nullptr)
-	{
+		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][GolemInteract] bClayMoundInteraction = true"));
 		return;
 	}
 	
 	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-	if (PC == nullptr)
-	{
-		return;
-	}
 	
-	if (GetWorldTimerManager().IsTimerActive(HealTimerHandle))
-	{
-		GetWorldTimerManager().ClearTimer(HealTimerHandle);
-	}
-	if (GetWorldTimerManager().IsTimerActive(ClayTransitionTimerHandle))
-	{
-		GetWorldTimerManager().ClearTimer(ClayTransitionTimerHandle);
-	}
+	HideSkully(false, true);
 	
-	bIsInClayMoundInteraction = false;
-	bTransitioningClayMound = false;
-	bClayMoundSubmerged = false;
-	bCanTransform = false;
-	bClayBaseLocked = false;
-	
-	ClayAlpha = 0.0f;
-	
-	HideSkully(true, true);
-	
-	USkeletalMeshComponent* GollemMesh = Gollem->GetMesh();
-	static const FName RideSocket(TEXT("L_DUMMY_JNT"));
-	AttachToComponent(GollemMesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale, RideSocket);
-	
-	const FRotator FaceRot(0.0f, Gollem->GetActorRotation().Yaw, 0.0f);
-	PC->SetControlRotation(FaceRot);
-	
-	PC->Possess(Gollem);
-	Gollem->SetInstigator(this);
+	PC->Possess(NearbyGolem);
+	CurrentGolem = NearbyGolem;
 }
-void ASkully::ReturnFromGolem(AGollemCharacter* FromGollem)
-{
-	if (FromGollem == nullptr)
-	{
-		return;
-	}
-	
-	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-	if (PC == nullptr)
-	{
-		return;
-	}
-	
-	if (GetWorldTimerManager().IsTimerActive(HealTimerHandle))
-	{
-		GetWorldTimerManager().ClearTimer(HealTimerHandle);
-	}
-	if (GetWorldTimerManager().IsTimerActive(ClayTransitionTimerHandle))
-	{
-		GetWorldTimerManager().ClearTimer(ClayTransitionTimerHandle);
-	}
-	
-	bIsInClayMoundInteraction = false;
-	bTransitioningClayMound = false;
-	bClayMoundSubmerged = false;
-	bCanTransform = false;
-	bClayBaseLocked = false;
-	
-	ClayAlpha = 0.0f;
-	
-	if (CameraSpringArm)
-	{
-		CameraSpringArm->ProbeChannel = ECC_Camera;
-	}
-	
-	PC->PlayerCameraManager->ViewPitchMin = -89.9f;
-	PC->PlayerCameraManager->ViewPitchMax = 89.9f;
-	
-	ShowSkully();
-	
-	FVector TargetLoc = FromGollem->GetActorLocation();
-	TargetLoc.Z += 800.0f;
-	SetActorLocation(TargetLoc, false, nullptr, ETeleportType::TeleportPhysics);
-	SetActorRotation(FRotator(0.0f, PC->GetControlRotation().Yaw, 0.0f));
-	
-	if (SkullyMovementComponent != nullptr)
-	{
-		SkullyMovementComponent->StopMovementImmediately();
-		SkullyMovementComponent->RequestJump();
-		SkullyMovementComponent->RequestJumpRelease();
-	}
-	PC->Possess(this);
-	
-	if (CurrentGollem == FromGollem)
-	{
-		CurrentGollem = nullptr;
-	}
-}
-void ASkully::SetNearbyGolem(AGollemCharacter* Gollem)
-{
-	NearbyGollem = Gollem;
-}
-void ASkully::ClearNearbyGolem(AGollemCharacter* Gollem)
-{
-	if (NearbyGollem.Get() == Gollem)
-	{
-		NearbyGollem = nullptr;
-	}
-}
-*/
 
 void ASkully::UpdateCameraFOVFromSpeed(float DeltaTime, float Speed, FVector Dir) const
 {
@@ -704,6 +572,52 @@ void ASkully::UpdateCameraFOVFromSpeed(float DeltaTime, float Speed, FVector Dir
 	// 현재 FOV->목표 FOV 보간
 	const float NewFOV = FMath::FInterpTo(FollowCamera->FieldOfView, TargetFOV, DeltaTime, FOVInterpSpeed);	
 	FollowCamera->SetFieldOfView(NewFOV);
+}
+
+void ASkully::DismountGolem(const float ZOffset)
+{
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (PC == nullptr)
+	{
+		return;
+	}
+	
+	FVector TargetLoc = CurrentGolem->GetActorLocation();
+	TargetLoc.Z += ZOffset;
+	SetActorLocationAndRotation(TargetLoc, FRotator(0.0f, PC->GetControlRotation().Yaw, 0.0f), false, nullptr, ETeleportType::TeleportPhysics);
+	
+	ShowSkully();
+	
+	if (SkullyMovementComponent == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][ReturnFromGolem] SkullyMovementComponent = nullptr"));
+	}
+	else
+	{
+		SkullyMovementComponent->StopMovementImmediately();
+		SkullyMovementComponent->RequestJump();
+		SkullyMovementComponent->RequestJumpRelease();
+	}
+	
+	PC->Possess(this);
+	CurrentGolem = nullptr;
+}
+
+void ASkully::DespawnGolem()
+{
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (PC == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][BegineDespawnGolem] PlayerController = nullptr"));
+		return;
+	}
+	
+	SetActorLocationAndRotation(CurrentGolem->GetClayMoundSurfaceLocation(), FRotator(0.0f, PC->GetControlRotation().Yaw, 0.0f), false, nullptr, ETeleportType::TeleportPhysics);
+	
+	ShowSkully();
+	
+	PC->Possess(this);
+	CurrentGolem = nullptr;
 }
 
 void ASkully::Init() const
@@ -759,40 +673,49 @@ void ASkully::HideSkully(const bool bNoCollision, const bool bMesh) const
 	}
 }
 
-void ASkully::ShowSkully() const
+void ASkully::ShowSkully(const bool bCollision, const bool bMovementComp, const bool bMesh) const
 {
-	if (CollisionComponent == nullptr)
+	if (bCollision == true)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][ShowSkully] CollisionComponent = nullptr"));
-	}
-	else
-	{
-		CollisionComponent->SetCollisionProfileName(TEXT("BlockAllDynamic"));
-	}
-	
-	if (SkullyMovementComponent == nullptr)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][ShowSkully] SkullyMovementComponent = nullptr"));
-	}
-	else
-	{
-		SkullyMovementComponent->SetComponentTickEnabled(true);
+		if (CollisionComponent == nullptr)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][ShowSkully] CollisionComponent = nullptr"));
+		}
+		else
+		{
+			CollisionComponent->SetCollisionProfileName(TEXT("BlockAllDynamic"));
+		}
 	}
 	
-	if (BoneMesh == nullptr)
+	if (bMovementComp == true)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][ShowSkully] BoneMesh = nullptr"));
+		if (SkullyMovementComponent == nullptr)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][ShowSkully] SkullyMovementComponent = nullptr"));
+		}
+		else
+		{
+			SkullyMovementComponent->SetComponentTickEnabled(true);
+		}
 	}
-	else
+	
+	if (bMesh == true)
 	{
-		BoneMesh->SetVisibility(true);
-	}
-	if (ClayMesh == nullptr)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][ShowSkully] ClayMesh = nullptr"));
-	}
-	else
-	{
-		ClayMesh->SetVisibility(true);
+		if (BoneMesh == nullptr)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][ShowSkully] BoneMesh = nullptr"));
+		}
+		else
+		{
+			BoneMesh->SetVisibility(true);
+		}
+		if (ClayMesh == nullptr)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][ShowSkully] ClayMesh = nullptr"));
+		}
+		else
+		{
+			ClayMesh->SetVisibility(true);
+		}
 	}
 }

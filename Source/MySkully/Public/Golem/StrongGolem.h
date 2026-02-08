@@ -12,18 +12,22 @@ class MYSKULLY_API AStrongGolem : public AGolemCharacter
 public:
 	AStrongGolem();
 	
+	FORCEINLINE UAnimMontage* GetSlamEndMontage() { return SlamEndMontage; }
 	FORCEINLINE void SetPunch(const bool Value) { bPunch = Value; }
 	FORCEINLINE void SetSlam(const bool Value) { bSlam = Value; }
-	FORCEINLINE UAnimMontage* GetSlamEndMontage() { return SlamEndMontage; }
-	FORCEINLINE void SetSlamPower(const float Value) { SlamPower = Value; }
 	FORCEINLINE bool GetSlamEnding() const { return bSlamEnding; }
-	FORCEINLINE void SetSlamEnding(const float Value) { bSlamEnding = Value; }
+	FORCEINLINE void SetSlamEnding(const bool Value) { bSlamEnding = Value; }
+	FORCEINLINE void SetSlamPower(const float Value) { SlamPower = Value; }
 	
+	virtual void Eat() override;
+		
 protected:
+	virtual void PossessedBy(AController* NewController) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	
 	// Input
 	virtual void DismountAction_Implementation() override;
+	virtual void DespawnAction_Implementation() override;
 	virtual void PrimaryAction_Implementation() override;
 	virtual void SecondaryAction_Implementation() override;
 	
@@ -39,6 +43,8 @@ private:
 	TObjectPtr<UAnimMontage> SlamStartMontage;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UAnimMontage> SlamEndMontage;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UAnimMontage> EatMontage;
 	
 	bool bPunch = false;
 	bool bSlam = false;

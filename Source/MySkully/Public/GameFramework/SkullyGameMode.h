@@ -9,7 +9,9 @@ class MYSKULLY_API ASkullyGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
 	
-public:	
+public:
+	ASkullyGameMode();
+	
 	FORCEINLINE const FVector& GetSkullyRespawnLocation() const { return SkullyRespawnLocation; }
 	FORCEINLINE void SetSkullyRespawnLocation(const FVector& Location) { SkullyRespawnLocation = Location; }
 	FORCEINLINE uint8 GetSaveIndex() const { return SaveIndex; }

@@ -3,11 +3,13 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/ClayMoundReactiveComponent/ClayMoundReactiveComponent.h"
 #include "Components/HealthComponent/HealthComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Gollem/GollemCharacter.h"
+#include "Kismet/GameplayStatics.h"
+#include "Skully/Skully.h"
 #include "Skully/SkullyCameraComponent.h"
 
 AGolemCharacter::AGolemCharacter()
@@ -40,6 +42,8 @@ AGolemCharacter::AGolemCharacter()
 	InteractionBox->SetupAttachment(GetRootComponent());
 	InteractionBox->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	InteractionBox->SetGenerateOverlapEvents(true);
+	InteractionBox->OnComponentBeginOverlap.AddDynamic(this, &AGolemCharacter::OnBoxComponentBeginOverlap);
+	InteractionBox->OnComponentEndOverlap.AddDynamic(this, &AGolemCharacter::OnBoxComponentEndOverlap);
 	InteractionBox->PrimaryComponentTick.bCanEverTick = false;
 	
 	// 헬스 컴포넌트
@@ -139,6 +143,8 @@ void AGolemCharacter::PossessedBy(AController* NewController)
 
 void AGolemCharacter::UnPossessed()
 {
+	UE_LOG(LogTemp, Warning, TEXT("GolemCharacter UnPossessed"));
+	
 	const APlayerController* PC = Cast<APlayerController>(GetController());
 	if (PC == nullptr)
 	{
@@ -210,7 +216,7 @@ void AGolemCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	}
 	else
 	{
-		EIC->BindAction(DismountInputAction, ETriggerEvent::Triggered, this, &AGolemCharacter::Dismount);
+		EIC->BindAction(DismountInputAction, ETriggerEvent::Triggered, this, &AGolemCharacter::Interact);
 	}
 }
 
@@ -242,6 +248,58 @@ void AGolemCharacter::OnMovementModeChanged(EMovementMode PrevMovementMode, uint
 		if (GetWorldTimerManager().IsTimerActive(FallingTimerHandle) == true)
 		{
 			GetWorldTimerManager().ClearTimer(FallingTimerHandle);
+		}
+	}
+}
+
+void AGolemCharacter::OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (OtherActor == nullptr || OtherActor == this)
+	{
+		return;
+	}
+	
+	ASkully* Player = Cast<ASkully>(OtherActor);
+	if (Player == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][OnBoxComponentBeginOverlap] Player = nullptr"));
+		return;
+	}
+	
+	if (OtherActor == Player)
+	{
+		if (OtherComp == Player->GetRootComponent())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][OnBoxComponentBeginOverlap] BeginOverlap InteractionBox"));
+			
+			Player->SetNearbyGolem(this);
+			Player->SetCanRide(true);
+		}
+	}
+}
+
+void AGolemCharacter::OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (OtherActor == nullptr)
+	{
+		return;
+	}
+	
+	ASkully* Player = Cast<ASkully>(OtherActor);
+	if (Player == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][OnBoxComponentEndOverlap] PlayerPawn = nullptr"));
+		return;
+	}
+	
+	if (OtherActor == Player)
+	{
+		if (OtherComp == Player->GetRootComponent())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][OnBoxComponentEndOverlap] EndOverlap InteractionBox"));
+		
+			Player->SetNearbyGolem(nullptr);
+			Player->SetCanRide(false);
 		}
 	}
 }
@@ -357,22 +415,32 @@ void AGolemCharacter::StopJump(const FInputActionValue& Value)
 	StopJumping();
 }
 
-void AGolemCharacter::Dismount(const FInputActionValue& Value)
+void AGolemCharacter::Interact(const FInputActionValue& Value)
 {
 	if (ClayMoundReactiveComponent == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[Golem.cpp][Interact] ClayMoundReactiveComponent = nullptr"));
+		UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][Interact] ClayMoundReactiveComponent = nullptr"));
 		return;
 	}
 	if (bIsPlayingCameraSequence == true)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][Dismount] bIsPlayingCameraSequence = true"));
+		UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][Interact] bIsPlayingCameraSequence = true"));
 		return;
 	}
 	
-	DismountAction();
+	if (ClayMoundReactiveComponent->GetOnClayMoundSurface() == false)
+	{
+		DismountAction();		
+	}
+	else
+	{
+		DespawnAction();
+	}
 }
 void AGolemCharacter::DismountAction_Implementation()
+{
+}
+void AGolemCharacter::DespawnAction_Implementation()
 {
 }
 
@@ -400,6 +468,89 @@ void AGolemCharacter::Secondary(const FInputActionValue& Value)
 	
 	SecondaryAction();
 }
+
 void AGolemCharacter::SecondaryAction_Implementation()
 {
+}
+
+void AGolemCharacter::Despawn() const
+{
+	if (GetCapsuleComponent() == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][Despawn] CapsuleComponent = nullptr"));
+	}
+	else
+	{
+		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+	
+	if (GetMovementComponent() == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][Despawn] MovementComponent = nullptr"));
+	}
+	else
+	{
+		GetMovementComponent()->StopMovementImmediately();
+		GetMovementComponent()->SetComponentTickEnabled(false);
+	}
+}
+
+void AGolemCharacter::DelayDestroy()
+{
+	GetWorldTimerManager().SetTimer(DestroyDelayTimerHandle, this, &AGolemCharacter::GolemDestroy, 1.0f, false);
+}
+
+void AGolemCharacter::GolemDestroy()
+{
+	Destroy();
+}
+
+void AGolemCharacter::Eat()
+{
+	UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][Eat] Play"));
+	PlayEatCameraSequence();
+}
+void AGolemCharacter::PlayEatCameraSequence()
+{
+	if (CameraBoom == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][PlayEatCameraSequence] CameraBoom = nullptr"));
+		return;
+	}
+	
+	bIsPlayingCameraSequence = true;
+	CachedCameraBoomRotation = CameraBoom->GetRelativeRotation();
+	EatCameraBoomRotation = CameraBoom->GetRelativeRotation() + FRotator(0.0f, 180.0f, 0.0f);
+	EatCameraBoomRotationSpeed = 0.0f;
+	CameraBoom->bUsePawnControlRotation = false;
+	CameraBoom->SetRelativeRotation(EatCameraBoomRotation);
+	
+	GetWorldTimerManager().SetTimer(EatCameraSequenceTimerHandle, this, &AGolemCharacter::UpdateEatCameraSequence, 0.01f, true, 0.0f);
+}
+void AGolemCharacter::UpdateEatCameraSequence()
+{
+	if (CameraBoom == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][UpdateEatCameraSequence] CameraBoom = nullptr"));
+		bIsPlayingCameraSequence = false;
+		CachedCameraBoomRotation = FRotator::ZeroRotator;
+		GetWorldTimerManager().ClearTimer(EatCameraSequenceTimerHandle);
+		return;
+	}
+	
+	EatCameraBoomRotationSpeed += 0.01f;
+	const float Alpha = FMath::Clamp(EatCameraBoomRotationSpeed / 0.5f, 0.0f, 1.0f);
+	const float SmoothAlpha = FMath::InterpEaseInOut(0.0f, 1.0f, Alpha, 2.0f);
+	const FRotator NewRot = FMath::Lerp(EatCameraBoomRotation, CachedCameraBoomRotation, SmoothAlpha);
+	CameraBoom->SetRelativeRotation(NewRot);
+	
+	if (Alpha >= 1.0f)
+	{
+		Controller->SetControlRotation(CameraBoom->GetComponentRotation());
+		
+		bIsPlayingCameraSequence = false;
+		CachedCameraBoomRotation = FRotator::ZeroRotator;
+		CameraBoom->bUsePawnControlRotation = true;
+		GetWorldTimerManager().ClearTimer(EatCameraSequenceTimerHandle);
+	}
 }
