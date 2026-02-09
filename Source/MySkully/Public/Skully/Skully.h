@@ -1,11 +1,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/SphereComponent.h"
+#include "Components/ClayMoundReactiveComponent/ClayMoundReactiveInterface.h"
 #include "Components/HealthComponent/HealthInterface.h"
 #include "GameFramework/Pawn.h"
 #include "Skully.generated.h"
 
+class AGolemCharacter;
+class UClayMoundReactiveComponent;
 class USkullyCameraComponent;
 class UBoxComponent;
 class UPostProcessComponent;
@@ -22,103 +24,143 @@ class UInputAction;
 struct FInputActionValue;
 
 UCLASS()
-class MYSKULLY_API ASkully : public APawn, public IHealthInterface
+class MYSKULLY_API ASkully : public APawn, public IHealthInterface, public IClayMoundReactiveInterface
 {
 	GENERATED_BODY()
-
+	
 public:
 	ASkully();
 
-	FORCEINLINE bool GetOnClayMound() const { return bOnClayMound; }
-	FORCEINLINE void SetOnClayMound(bool Value) { bOnClayMound = Value; }
+	FORCEINLINE bool GetCanRide() const { return bCanRide; }
+	FORCEINLINE void SetCanRide(const bool Value) { bCanRide = Value; }
+	FORCEINLINE AGolemCharacter* GetNearbyGolem() const { return NearbyGolem; }
+	FORCEINLINE void SetNearbyGolem(AGolemCharacter* NewGolem) { NearbyGolem = NewGolem; }
+	
+	// Helper
+	void Init() const;
+	void HideSkully(const bool bNoCollision = true, const bool bMesh = true) const;
+	void ShowSkully(const bool bCollision = true, const bool bMovementComp = true, const bool bMesh = true) const;
+	
+	// Transform
+	void DismountGolem(const float ZOffset);
+	void DespawnGolem();
 	
 protected:
 	virtual void BeginPlay() override;
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void UnPossessed() override;
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
 	// Health Interface
 	virtual void OnTakeDamage_Implementation() override;
 	virtual void OnDeath_Implementation() override;
 	virtual void OnTakeHealth_Implementation() override;
-
-	// Camera Box Component
-	UFUNCTION()
-	virtual void OnCameraBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, 
-								   int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-	UFUNCTION()
-	void OnCameraBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 	
-public:
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
-protected:
+	// ClayMoundReactive Interface
+	virtual void OnEnterClayMound_Implementation() override;
+	virtual void OnExitClayMound_Implementation() override;
+	
+private:
 	// Camera
-	UFUNCTION()
-	void UpdateFOVBySpeed(float DeltaTime, float Speed, FVector Dir);
+	void UpdateCameraFOVFromSpeed(float DeltaTime, float Speed, FVector Dir) const;
 	
-	// Skully Input Method
+	// Input
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void Jump(const FInputActionValue& Value);
 	void StopJump(const FInputActionValue& Value);
-	void Heal(const FInputActionValue& Value);
-	void StopHeal(const FInputActionValue& Value);
+	void Interact(const FInputActionValue& Value);
+	void StopInteract(const FInputActionValue& Value);
+	void TransformStrongGolem(const FInputActionValue& Value);
+	void TransformSwiftGolem(const FInputActionValue& Value);
+	void GolemInteract(const FInputActionValue& Value);
 	
-public:
-	// Initialize
-	void InitState();
-	// Set Skully_clay Scale
-	void SetSkully_ClayScale(float Scale);
+	// ClayMound
+	void UpdateClayMoundTransition();
+	
+	// Transform
+	void TransformToGolem(const TSubclassOf<AGolemCharacter> GolemClass, const float ZOffset);
+	void RideGolem(AGolemCharacter* Golem);
 	
 private:
-	// Collision
+	// Collision(Root)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess="true"))
-	USphereComponent* SphereComponent;
+	TObjectPtr<USphereComponent> CollisionComponent;
 
 	// Arrow
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess="true"))
-	UArrowComponent* ArrowComponent;
-	
-	// Mesh Pivot
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Pivot", meta = (AllowPrivateAccess="true"))
-	USceneComponent* MeshPivot;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Arrow", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UArrowComponent> Direction;
 	
 	// Mesh
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh", meta = (AllowPrivateAccess="true"))
-	USkeletalMeshComponent* Skully_Bone;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mesh", meta = (AllowPrivateAccess="true"))
-	UStaticMeshComponent* Skully_Clay;
+	TObjectPtr<USceneComponent> MeshPivot;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USkeletalMeshComponent> BoneMesh;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UStaticMeshComponent> ClayMesh;
 	
 	// Camera
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
-	USpringArmComponent* CameraSpringArm;
+	TObjectPtr<USpringArmComponent> CameraBoom;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
-	USkullyCameraComponent* Camera;
+	TObjectPtr<USkullyCameraComponent> FollowCamera;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
-	UBoxComponent* CameraBoxComponent;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
-	UPostProcessComponent* PostProcessComponent;
+	TObjectPtr<UBoxComponent> FollowCameraCollision;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
+	float DefaultFOV = 90.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
+	float MaxFOV = 110.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
+	float FOVInterpSpeed = 10.0f;
 	
 	// Movement
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
-	USkullyMovementComponent* SkullyMovementComponent;
+	TObjectPtr<USkullyMovementComponent> SkullyMovementComponent;
 	
 	// Health
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
-	UHealthComponent* HealthComponent;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Health", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UHealthComponent> HealthComponent;
+	
+	FTimerHandle HealTimerHandle;
+	
+	// ClayMound
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ClayMound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UClayMoundReactiveComponent> ClayMoundReactiveComponent;
+	
+	bool bClayMoundInteraction = false;
+	bool bDescendingIntoClayMound = false;
+	FTimerHandle ClayMoundTransitionTimerHandle;
+	float ClayMoundTransitionAlpha = 0.0f;
 	
 	// Input
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
-	UInputMappingContext* InputMappingContext;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
-	UInputAction* JumpAction;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
-	UInputAction* MoveAction;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
-	UInputAction* LookAction;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
-	UInputAction* ClayMoundAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UInputMappingContext> InputMappingContext;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UInputAction> MoveInputAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UInputAction> LookInputAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UInputAction> JumpInputAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UInputAction> ClayMoundInputAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UInputAction> TransformStrongGolemInputAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UInputAction> TransformSwiftGolemInputAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UInputAction> GolemInputAction;
 
-private:
-	bool bOnClayMound = false; // 웅덩이 상호작용 플래그
-	FTimerHandle HealTimerHandle; // 힐 타이머 핸들
+	// Transform
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Transform", meta = (AllowPrivateAccess="true"))
+	TSubclassOf<AGolemCharacter> StrongGolemClass;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Transform", meta = (AllowPrivateAccess="true"))
+	TSubclassOf<AGolemCharacter> SwiftGolemClass;
+	
+	UPROPERTY()
+	TObjectPtr<AGolemCharacter> CurrentGolem;
+	UPROPERTY()
+	AGolemCharacter* NearbyGolem;
+	bool bCanTransform = false;
+	bool bCanRide = false;
+	
 };

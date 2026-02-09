@@ -14,20 +14,15 @@ public:
 	UHealthComponent();
 
 	FORCEINLINE float GetHealth() const { return Health; }
-	FORCEINLINE void SetHealth(float Value) { Health = Value; }
+	FORCEINLINE void SetHealth(const float Value) { Health = Value; }
 	
-protected:
-	virtual void BeginPlay() override;
-
-public:
-	void LoseHealth(float Amount);
+	void LoseHealth(const float Amount);
 	void GainHealth();
 	
 private:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Health", meta = (AllowPrivateAccess="true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Health", meta = (AllowPrivateAccess="true"))
 	float Health = 100.0f;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Health", meta = (AllowPrivateAccess="true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Health", meta = (AllowPrivateAccess="true"))
 	float HealAmount = 1.0f;
 	
 };

@@ -30,6 +30,9 @@ public:
 	void RequestJump(); // 점프 요청
 	void RequestJumpRelease(); // 점프 종료 요청
 	
+	FORCEINLINE virtual float GetMaxSpeed() const override { return MaxSpeed; }
+	FORCEINLINE void SetPivot(USceneComponent* Pivot) { VisualComponent = Pivot; }
+	
 protected:
 	/******************바닥 감지******************/
 	void CheckGround(float DeltaTime); // 지면 판정
