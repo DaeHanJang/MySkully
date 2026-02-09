@@ -4,6 +4,8 @@
 #include "Components/ArrowComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SphereComponent.h"
+#include "Environment/DestructibleTile.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SkullyPlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -52,6 +54,17 @@ AStrongGolem::AStrongGolem()
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 320.0f, 0.0f);
 	GetCharacterMovement()->MaxWalkSpeed = 1400.0f;
 	GetCharacterMovement()->JumpZVelocity = 1500.0f;
+	
+	// 펀치 콜리전
+	PunchCollision = CreateDefaultSubobject<USphereComponent>(TEXT("PunchCollision"));
+	PunchCollision->SetupAttachment(GetMesh(), TEXT("R_DUMMY_JNTSocket"));
+	PunchCollision->InitSphereRadius(50.0f);
+	
+	PunchCollision->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+	PunchCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	PunchCollision->SetGenerateOverlapEvents(true);
+	PunchCollision->OnComponentBeginOverlap.AddDynamic(this, &AStrongGolem::OnFistOverlap);
+	PunchCollision->PrimaryComponentTick.bCanEverTick = false;
 }
 
 void AStrongGolem::PossessedBy(AController* NewController)
@@ -195,7 +208,6 @@ void AStrongGolem::SecondaryAction_Implementation()
 	bSlam = true;
 	PlayAnimMontage(SlamStartMontage);
 }
-
 void AStrongGolem::StopSecondary(const FInputActionValue& Value)
 {
 	if (bPunch == true)
@@ -222,7 +234,6 @@ void AStrongGolem::StopSecondary(const FInputActionValue& Value)
 	StopAnimMontage(GetCurrentMontage());
 	PlayAnimMontage(SlamEndMontage, 1.0f, TEXT("End"));
 }
-
 
 void AStrongGolem::Eat()
 {
@@ -255,4 +266,40 @@ void AStrongGolem::Eat()
 	{
 		PlayAnimMontage(EatMontage, 1.0f, TEXT("Back"));
 	}
+}
+
+void AStrongGolem::BeginPunchWindow()
+{
+	UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][BeginPunchWindow]"));
+	HitActorsThisPunch.Reset();
+	PunchCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+}
+void AStrongGolem::EndPunchWindow()
+{
+	UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][EndPunchWindow]"));
+	PunchCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+void AStrongGolem::OnFistOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][OnFistOverlap]"));
+	if (OtherActor == nullptr || OtherActor == this)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][OnFistOverlap] OtherActor = nullptr"));
+		return;
+	}
+	if (HitActorsThisPunch.Contains(OtherActor) == true)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][OnFistOverlap] OtherActor in HitActorsThisPunch"));
+		return;
+	}
+	HitActorsThisPunch.Add(OtherActor);
+	ADestructibleTile* Rock = Cast<ADestructibleTile>(OtherActor);
+	if (Rock == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][OnFistOverlap] DestructibleTile = nullptr"));
+		return;
+	}
+	
+	const FVector HitPos = SweepResult.ImpactPoint.IsNearlyZero() == true ? OtherActor->GetActorLocation() : FVector(SweepResult.ImpactPoint);
+	Rock->ApplyPunchAt(HitPos, 1e10f, 60.0f);
 }

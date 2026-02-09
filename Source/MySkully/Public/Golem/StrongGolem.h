@@ -4,6 +4,8 @@
 #include "Golem/GolemCharacter.h"
 #include "StrongGolem.generated.h"
 
+class USphereComponent;
+
 UCLASS()
 class MYSKULLY_API AStrongGolem : public AGolemCharacter
 {
@@ -20,6 +22,10 @@ public:
 	FORCEINLINE void SetSlamPower(const float Value) { SlamPower = Value; }
 	
 	virtual void Eat() override;
+	
+	// Punch Collision
+	void BeginPunchWindow();
+	void EndPunchWindow();
 		
 protected:
 	virtual void PossessedBy(AController* NewController) override;
@@ -31,11 +37,19 @@ protected:
 	virtual void PrimaryAction_Implementation() override;
 	virtual void SecondaryAction_Implementation() override;
 	
+	// Punch
+	UFUNCTION()
+	void OnFistOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	
 private:
 	// Input
 	void StopSecondary(const FInputActionValue& Value);
-
-private:	
+	
+private:
+	// Punch Collision
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USphereComponent> PunchCollision;
+	
 	// Animation
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UAnimMontage> PunchMontage;
@@ -49,6 +63,9 @@ private:
 	bool bPunch = false;
 	bool bSlam = false;
 	bool bSlamEnding = false;
+	
+	// Punch
+	TSet<TWeakObjectPtr<AActor>> HitActorsThisPunch;
 	
 	// Slam
 	float SlamPower = 0.0f;
