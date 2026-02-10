@@ -17,6 +17,9 @@ ADestructibleTile::ADestructibleTile()
 	// 지오메트리 컬렉션
 	GeometryCollection = CreateDefaultSubobject<UGeometryCollectionComponent>(TEXT("GeometryCollection"));
 	GeometryCollection->SetupAttachment(RootComponent);
+	GeometryCollection->SetCollisionProfileName(TEXT("Destructible"));
+	GeometryCollection->SetNotifyBreaks(true);
+	GeometryCollection->OnChaosBreakEvent.AddDynamic(this, &ADestructibleTile::OnBreak);
 	
 	// 블록 콜리전
 	BlockCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("BlockCollision"));
@@ -26,18 +29,9 @@ ADestructibleTile::ADestructibleTile()
 	BlockCollision->SetCollisionProfileName(TEXT("BlockAll"));
 	BlockCollision->SetCollisionResponseToChannel(ECC_Destructible, ECR_Ignore);
 	BlockCollision->PrimaryComponentTick.bCanEverTick = false;
-	
-	// 오버랩 콜리전
-	OverlapCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("OverlapCollision"));
-	OverlapCollision->SetupAttachment(RootComponent);
-	OverlapCollision->SetRelativeLocation(FVector(280.0f, 0.0f, 310.0f));
-	OverlapCollision->InitBoxExtent(FVector(385.0f, 300.0f, 380.0f));
-	OverlapCollision->SetCollisionProfileName(TEXT("OverlapAll"));
-	OverlapCollision->SetGenerateOverlapEvents(true);
-	OverlapCollision->PrimaryComponentTick.bCanEverTick = false;
 }
 
-void ADestructibleTile::ApplyPunchAt(const FVector& WorldPos, const float Strain, const float VelocityMag)
+void ADestructibleTile::ApplyPunchAt(const FVector& PunchDir, const FVector& WorldPos, const float Strain, const float VelocityMag)
 {
 	if (GeometryCollection == nullptr)
 	{
@@ -47,15 +41,59 @@ void ADestructibleTile::ApplyPunchAt(const FVector& WorldPos, const float Strain
 	
 	BlockCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	
-	const TObjectPtr<UFieldSystemMetaDataFilter> MetaData = NewObject<UFieldSystemMetaDataFilter>();
+	UFieldSystemMetaDataFilter* MetaData = NewObject<UFieldSystemMetaDataFilter>(this);
 	MetaData->SetMetaDataFilterType(EFieldFilterType::Field_Filter_All, EFieldObjectType::Field_Object_All, EFieldPositionType::Field_Position_CenterOfMass);
 
-	UUniformScalar* UniformScalar = NewObject<UUniformScalar>();
+	UUniformScalar* UniformScalar = NewObject<UUniformScalar>(this);
 	UniformScalar->Magnitude = Strain;
-	GeometryCollection->ApplyPhysicsField(true, EGeometryCollectionPhysicsTypeEnum::Chaos_ExternalClusterStrain, MetaData.Get(), UniformScalar);
+	GeometryCollection->ApplyPhysicsField(true, EGeometryCollectionPhysicsTypeEnum::Chaos_ExternalClusterStrain, MetaData, UniformScalar);
 
-	URadialVector* RadialVel = NewObject<URadialVector>();
-	RadialVel->Magnitude = VelocityMag;
-	RadialVel->Position  = WorldPos;
-	GeometryCollection->ApplyPhysicsField(true, EGeometryCollectionPhysicsTypeEnum::Chaos_LinearVelocity, MetaData.Get(), RadialVel);
+	const FVector Dir = PunchDir.GetSafeNormal(); 
+	if (Dir.IsNearlyZero() == false)
+	{
+		UUniformVector* PushVel = NewObject<UUniformVector>(this);
+		PushVel->Direction = Dir;
+		PushVel->Magnitude = VelocityMag;
+		GeometryCollection->ApplyPhysicsField(true, EGeometryCollectionPhysicsTypeEnum::Chaos_LinearVelocity, MetaData, PushVel);
+	}
+	else
+	{
+		URadialVector* RadialVel = NewObject<URadialVector>(this);
+		RadialVel->Position  = WorldPos == FVector::ZeroVector ? BlockCollision->GetComponentLocation() : WorldPos;
+		RadialVel->Magnitude = VelocityMag;
+		GeometryCollection->ApplyPhysicsField(true, EGeometryCollectionPhysicsTypeEnum::Chaos_LinearVelocity, MetaData, RadialVel);
+	}
+}
+
+void ADestructibleTile::OnBreak(const FChaosBreakEvent& BreakingData)
+{
+	UE_LOG(LogTemp, Warning, TEXT("[DestructibleTile][OnBreak]"));
+	GetWorldTimerManager().SetTimer(DestroyTimerHandle, this, &ADestructibleTile::UpdateDestroyTransition, 0.01f, true, 5.0f);
+}
+void ADestructibleTile::UpdateDestroyTransition()
+{
+	if (DestroyElapsedTime == 0.0f)
+	{
+		UFieldSystemMetaDataFilter* MetaData = NewObject<UFieldSystemMetaDataFilter>(this);
+		MetaData->SetMetaDataFilterType(EFieldFilterType::Field_Filter_All, EFieldObjectType::Field_Object_All, EFieldPositionType::Field_Position_CenterOfMass);
+
+		UUniformInteger* MakeKinematic = NewObject<UUniformInteger>(this);
+		MakeKinematic->Magnitude = (int32)Chaos::EObjectStateType::Kinematic;
+		GeometryCollection->ApplyPhysicsField(true, EGeometryCollectionPhysicsTypeEnum::Chaos_DynamicState, MetaData, MakeKinematic);
+		
+		GeometryCollection->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Ignore);
+		GeometryCollection->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
+	}
+	
+	DestroyElapsedTime += 0.01f;
+	
+	if (DestroyElapsedTime >= 2.0f)
+	{
+		GetWorldTimerManager().ClearTimer(DestroyTimerHandle);
+		Destroy();
+	}
+	else
+	{
+		GeometryCollection->AddWorldOffset(FVector::DownVector * 1.0f, false, nullptr, ETeleportType::TeleportPhysics);
+	}
 }

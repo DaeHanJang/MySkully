@@ -17,8 +17,15 @@ public:
 	ADestructibleTile();
 	
 	UFUNCTION(BlueprintCallable)
-	void ApplyPunchAt(const FVector& WorldPos, const float Strain = 1e10f, const float VelocityMag = 50.0f);
+	void ApplyPunchAt(const FVector& PunchDir = FVector::ZeroVector, const FVector& WorldPos = FVector::ZeroVector, const float Strain = 1e10f, const float VelocityMag = 2500.0f);
 
+private:
+	UFUNCTION()
+	void OnBreak(const FChaosBreakEvent& BreakingData);
+	
+	UFUNCTION()
+	void UpdateDestroyTransition();
+	
 private:
 	// Scene Component(Root)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GeometryCollection", meta = (AllowPrivateAccess = "true"))
@@ -28,12 +35,11 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GeometryCollection", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UGeometryCollectionComponent> GeometryCollection;
 
-	// Block Collision
+	// Collision
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UBoxComponent> BlockCollision;
 	
-	// Overlap Collision
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UBoxComponent> OverlapCollision;
+	FTimerHandle DestroyTimerHandle;
+	float DestroyElapsedTime = 0.0f;
 	
 };

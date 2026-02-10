@@ -6,6 +6,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
 #include "Environment/DestructibleTile.h"
+#include "Environment/KnockOverBridge.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SkullyPlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -59,7 +60,6 @@ AStrongGolem::AStrongGolem()
 	PunchCollision = CreateDefaultSubobject<USphereComponent>(TEXT("PunchCollision"));
 	PunchCollision->SetupAttachment(GetMesh(), TEXT("R_DUMMY_JNTSocket"));
 	PunchCollision->InitSphereRadius(50.0f);
-	
 	PunchCollision->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	PunchCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	PunchCollision->SetGenerateOverlapEvents(true);
@@ -272,7 +272,7 @@ void AStrongGolem::BeginPunchWindow()
 {
 	UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][BeginPunchWindow]"));
 	HitActorsThisPunch.Reset();
-	PunchCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	PunchCollision->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 }
 void AStrongGolem::EndPunchWindow()
 {
@@ -293,13 +293,17 @@ void AStrongGolem::OnFistOverlap(UPrimitiveComponent* OverlappedComp, AActor* Ot
 		return;
 	}
 	HitActorsThisPunch.Add(OtherActor);
-	ADestructibleTile* Rock = Cast<ADestructibleTile>(OtherActor);
-	if (Rock == nullptr)
+	ADestructibleTile* Destructible = Cast<ADestructibleTile>(OtherActor);
+	if (Destructible != nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][OnFistOverlap] DestructibleTile = nullptr"));
-		return;
+		Destructible->ApplyPunchAt(GetActorForwardVector());
 	}
-	
-	const FVector HitPos = SweepResult.ImpactPoint.IsNearlyZero() == true ? OtherActor->GetActorLocation() : FVector(SweepResult.ImpactPoint);
-	Rock->ApplyPunchAt(HitPos, 1e10f, 60.0f);
+	AKnockOverBridge* KnockOver = Cast<AKnockOverBridge>(OtherActor);
+	if (KnockOver != nullptr)
+	{
+		if (OtherComp == KnockOver->GetOverlapCollision())
+		{
+			KnockOver->KnockOver();
+		}
+	}
 }
