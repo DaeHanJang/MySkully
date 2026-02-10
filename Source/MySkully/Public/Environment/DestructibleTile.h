@@ -17,7 +17,7 @@ public:
 	ADestructibleTile();
 	
 	UFUNCTION(BlueprintCallable)
-	void ApplyPunchAt(const FVector& PunchDir = FVector::ZeroVector, const FVector& WorldPos = FVector::ZeroVector, const float Strain = 1e10f, const float VelocityMag = 2500.0f);
+	void ApplyPunchAt(const FVector& PunchDir = FVector::ZeroVector, const FVector& WorldPos = FVector::ZeroVector, const float Strain = 1e10f, const float VelocityMag = 1500.0f);
 
 private:
 	UFUNCTION()

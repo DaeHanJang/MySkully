@@ -8,6 +8,8 @@
 #include "Components/HealthComponent/HealthComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Perception/AIPerceptionStimuliSourceComponent.h"
+#include "Perception/AISense_Sight.h"
 #include "Skully/Skully.h"
 #include "Skully/SkullyCameraComponent.h"
 
@@ -55,6 +57,11 @@ AGolemCharacter::AGolemCharacter()
 	
 	// 무브먼트 컴포넌트
 	GetCharacterMovement()->bOrientRotationToMovement = true;
+	
+	// 감지 대상 컴포넌트
+	PerceptionSourceComponent = CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>(TEXT("PerceptionSourceComponent"));
+	PerceptionSourceComponent->RegisterForSense(UAISense_Sight::StaticClass());
+	PerceptionSourceComponent->RegisterWithPerceptionSystem();
 	
 	// 캐릭터 설정
 	bUseControllerRotationPitch = false;

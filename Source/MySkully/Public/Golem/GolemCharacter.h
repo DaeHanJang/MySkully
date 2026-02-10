@@ -7,6 +7,7 @@
 #include "GameFramework/Character.h"
 #include "GolemCharacter.generated.h"
 
+class UAIPerceptionStimuliSourceComponent;
 class ASkully;
 class UInputAction;
 class UInputMappingContext;
@@ -143,6 +144,10 @@ protected:
 	TObjectPtr<UInputAction> PrimaryInputAction;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess="true"))
 	TObjectPtr<UInputAction> SecondaryInputAction;
+	
+	// Perception
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perception", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UAIPerceptionStimuliSourceComponent> PerceptionSourceComponent;
 	
 	// Jump
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Jump", meta = (AllowPrivateAccess="true"))

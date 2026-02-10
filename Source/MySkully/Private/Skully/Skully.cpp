@@ -12,6 +12,8 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Golem/GolemCharacter.h"
 #include "Kismet/GameplayStatics.h"
+#include "Perception/AIPerceptionStimuliSourceComponent.h"
+#include "Perception/AISense_Sight.h"
 #include "Skully/SkullyCameraComponent.h"
 #include "Skully/SkullyMovementComponent.h"
 
@@ -96,6 +98,11 @@ ASkully::ASkully()
 	// 웅덩이 상호작용 컴포넌트
 	ClayMoundReactiveComponent = CreateDefaultSubobject<UClayMoundReactiveComponent>(TEXT("ClayMoundReactiveComponent"));
 	ClayMoundReactiveComponent->PrimaryComponentTick.bCanEverTick = false;
+	
+	// 감지 대상 컴포넌트
+	PerceptionSourceComponent = CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>(TEXT("PerceptionSourceComponent"));
+	PerceptionSourceComponent->RegisterForSense(UAISense_Sight::StaticClass());
+	PerceptionSourceComponent->RegisterWithPerceptionSystem();
 	
 	// 폰 설정
 	AutoPossessPlayer = EAutoReceiveInput::Player0;

@@ -6,6 +6,7 @@
 #include "GameFramework/Pawn.h"
 #include "Skully.generated.h"
 
+class UAIPerceptionStimuliSourceComponent;
 class AGolemCharacter;
 class UClayMoundReactiveComponent;
 class USkullyCameraComponent;
@@ -162,5 +163,9 @@ private:
 	AGolemCharacter* NearbyGolem;
 	bool bCanTransform = false;
 	bool bCanRide = false;
+	
+	// Perception
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perception", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UAIPerceptionStimuliSourceComponent> PerceptionSourceComponent;
 	
 };

@@ -35,7 +35,6 @@ AStrongGolem::AStrongGolem()
 		GetMesh()->SetSkeletalMesh(MeshAsset.Object);
 		GetMesh()->SetRelativeLocation(FVector(-100.0f, 0.0f, -390.0f));
 		GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		GetMesh()->PrimaryComponentTick.bAllowTickBatching = false;
 		// 애니메이션
 		static ConstructorHelpers::FClassFinder<UAnimInstance> AnimClass(TEXT("/Game/Character/Strong/Animation/APB_StrongGolem.APB_StrongGolem_C"));
 		if (AnimClass.Succeeded() == true)
