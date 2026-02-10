@@ -8,7 +8,6 @@
 #include "Components/HealthComponent/HealthComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Kismet/GameplayStatics.h"
 #include "Skully/Skully.h"
 #include "Skully/SkullyCameraComponent.h"
 
@@ -258,11 +257,9 @@ void AGolemCharacter::OnBoxComponentBeginOverlap(UPrimitiveComponent* Overlapped
 	{
 		return;
 	}
-	
 	ASkully* Player = Cast<ASkully>(OtherActor);
 	if (Player == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][OnBoxComponentBeginOverlap] Player = nullptr"));
 		return;
 	}
 	
@@ -284,11 +281,9 @@ void AGolemCharacter::OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedCo
 	{
 		return;
 	}
-	
 	ASkully* Player = Cast<ASkully>(OtherActor);
 	if (Player == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[GolemCharacter.cpp][OnBoxComponentEndOverlap] PlayerPawn = nullptr"));
 		return;
 	}
 	
