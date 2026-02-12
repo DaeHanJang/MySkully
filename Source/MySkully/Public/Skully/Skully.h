@@ -6,6 +6,7 @@
 #include "GameFramework/Pawn.h"
 #include "Skully.generated.h"
 
+class UAIPerceptionStimuliSourceComponent;
 class AGolemCharacter;
 class UClayMoundReactiveComponent;
 class USkullyCameraComponent;
@@ -80,7 +81,10 @@ private:
 	
 	// Transform
 	void TransformToGolem(const TSubclassOf<AGolemCharacter> GolemClass, const float ZOffset);
-	void RideGolem(AGolemCharacter* Golem);
+		
+	// Interaction Collision
+	UFUNCTION()
+	void OnSphereComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	
 private:
 	// Collision(Root)
@@ -162,5 +166,13 @@ private:
 	AGolemCharacter* NearbyGolem;
 	bool bCanTransform = false;
 	bool bCanRide = false;
+	
+	// Perception
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perception", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UAIPerceptionStimuliSourceComponent> PerceptionSourceComponent;
+	
+	// Interaction Collision
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess = true))
+	TObjectPtr<USphereComponent> InteractionCollision;
 	
 };

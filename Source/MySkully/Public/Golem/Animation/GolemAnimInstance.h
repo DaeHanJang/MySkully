@@ -14,15 +14,15 @@ public:
 	FORCEINLINE void SetDespawn(const bool Value) { bDespawn = Value; }
 	
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move", meta = (AllowPrivateAccess = "true"))
-	float SpeedRadio = 0.0f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jump", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
+	float SpeedRatio = 0.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jump")
 	bool bJump = false;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jump", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jump")
 	bool bFalling = false;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dismount", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dismount")
 	bool bDismount = false;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Despawn", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Despawn")
 	bool bDespawn = false;
 	
 };
