@@ -23,7 +23,7 @@ AKnockOverBridge::AKnockOverBridge()
 		BridgeMesh->PrimaryComponentTick.bCanEverTick = false;
 	}
 	GateMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GateMesh"));
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> GateMeshAsset(TEXT("/Game/Environment/GateKnockoverBridge/GateKnockOverBridge.GateKnockOverBridge"));
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> GateMeshAsset(TEXT("/Game/Environment/KnockoverBridge/GateKnockoverBridge/GateKnockOverBridge.GateKnockOverBridge"));
 	if (GateMeshAsset.Succeeded() == true)
 	{
 		GateMesh->SetStaticMesh(GateMeshAsset.Object);
@@ -72,8 +72,8 @@ AKnockOverBridge::AKnockOverBridge()
 	// 감지 콜리전
 	OverlapCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("OverlapCollision"));
 	OverlapCollision->SetupAttachment(GetRootComponent());
-	OverlapCollision->InitBoxExtent(FVector(100.0f, 650.0f, 650.0f));
-	OverlapCollision->SetRelativeLocation(FVector(-250.0f, -140.0f, 600.0f));
+	OverlapCollision->InitBoxExtent(FVector(300.0f, 650.0f, 650.0f));
+	OverlapCollision->SetRelativeLocation(FVector(-140.0f, -140.0f, 600.0f));
 	OverlapCollision->SetCollisionProfileName(TEXT("Overlap"));
 	OverlapCollision->SetGenerateOverlapEvents(true);
 	OverlapCollision->PrimaryComponentTick.bCanEverTick = false;
