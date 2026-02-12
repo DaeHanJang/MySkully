@@ -8,7 +8,6 @@
 #include "Components/ClayMoundReactiveComponent/ClayMoundReactiveComponent.h"
 #include "Components/HealthComponent/HealthComponent.h"
 #include "Enemy/WaterPunk.h"
-#include "Enemy/Animation/WaterPunkAnimInstance.h"
 #include "GameFramework/SkullyGameMode.h"
 #include "GameFramework/SkullyPlayerController.h"
 #include "GameFramework/SpringArmComponent.h"

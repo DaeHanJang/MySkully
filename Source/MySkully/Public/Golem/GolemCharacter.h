@@ -7,6 +7,7 @@
 #include "GameFramework/Character.h"
 #include "GolemCharacter.generated.h"
 
+class USphereComponent;
 class UAIPerceptionStimuliSourceComponent;
 class ASkully;
 class UInputAction;
@@ -84,6 +85,10 @@ protected:
 	void SecondaryAction();
 	virtual void SecondaryAction_Implementation();
 	
+	// Interaction Collision
+	UFUNCTION()
+	void OnSphereComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	
 private:
 	// Jump
 	void CheckFallingApex();
@@ -160,6 +165,10 @@ protected:
 	
 	// Spawn
 	bool bExist = false;
+	
+	// Interaction Collision
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess = true))
+	TObjectPtr<USphereComponent> InteractionCollision;
 	
 private:
 	// Spawn

@@ -63,20 +63,21 @@ void AWaterPunk::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UP
 	{
 		return;
 	}
-	ASkully* Skully = Cast<ASkully>(OtherActor);
-	if (Skully == nullptr)
-	{
-		return;
-	}
 	
-	UHealthComponent* HealthComponent = Skully->FindComponentByClass<UHealthComponent>();
-	if (HealthComponent == nullptr)
+	const ASkully* Skully = Cast<ASkully>(OtherActor);
+	if (Skully != nullptr && OtherComp == Skully->GetRootComponent())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[WaterPunk][OnHit] HealthComponent = nullptr"));
-		return;
-	}
+		UE_LOG(LogTemp, Warning, TEXT("[WaterPunk][OnHit] On Hit Skully"));
 		
-	HealthComponent->LoseHealth(100.0f);
+		UHealthComponent* HealthComponent = Skully->FindComponentByClass<UHealthComponent>();
+		if (HealthComponent == nullptr)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[WaterPunk][OnHit] HealthComponent = nullptr"));
+			return;
+		}
+		
+		HealthComponent->LoseHealth(100.0f);
+	}
 }
 
 void AWaterPunk::RequestStartAI()
@@ -206,8 +207,8 @@ void AWaterPunk::Hit()
 	
 	RequestStopAI();
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	GetMovementComponent()->StopMovementImmediately();
-	GetMovementComponent()->SetComponentTickEnabled(false);
+	GetCharacterMovement()->StopMovementImmediately();
+	GetCharacterMovement()->SetComponentTickEnabled(false);
 	WaterPunkAnimInstance->SetHit(true);
 }
 
