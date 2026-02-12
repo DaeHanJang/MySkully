@@ -22,7 +22,6 @@ public:
 private:
 	UFUNCTION()
 	void OnBreak(const FChaosBreakEvent& BreakingData);
-	
 	UFUNCTION()
 	void UpdateDestroyTransition();
 	

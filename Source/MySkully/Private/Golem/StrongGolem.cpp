@@ -5,6 +5,8 @@
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
+#include "Enemy/WaterPunk.h"
+#include "Engine/OverlapResult.h"
 #include "Environment/DestructibleTile.h"
 #include "Environment/KnockOverBridge.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -21,6 +23,7 @@ AStrongGolem::AStrongGolem()
 	// 콜리전
 	GetCapsuleComponent()->InitCapsuleSize(250.0f, 400.0f);
 	GetCapsuleComponent()->SetCollisionProfileName(TEXT("BlockAllDynamic"));
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Destructible, ECR_Ignore);
 	GetCapsuleComponent()->SetGenerateOverlapEvents(true);
 	GetCapsuleComponent()->PrimaryComponentTick.bCanEverTick = false;
 	
@@ -278,6 +281,7 @@ void AStrongGolem::EndPunchWindow()
 	UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][EndPunchWindow]"));
 	PunchCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
+
 void AStrongGolem::OnFistOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	UE_LOG(LogTemp, Warning, TEXT("[StrongGolem.cpp][OnFistOverlap]"));
@@ -305,4 +309,96 @@ void AStrongGolem::OnFistOverlap(UPrimitiveComponent* OverlappedComp, AActor* Ot
 			KnockOver->KnockOver();
 		}
 	}
+}
+
+void AStrongGolem::FireSlamBreath()
+{
+	HitActorsThisSlam.Reset();
+	const float Alpha = FMath::Clamp(SlamPower / MaxSlamPower, 0.0f, 1.0f);
+	MaxStep = FMath::RoundToInt(FMath::Lerp(4.0f, 8.0f, Alpha));
+	Step = 0;
+	SlamBreathStartLocation = GetActorLocation() + GetActorUpVector() * SlamBreathStartZOffset + GetActorForwardVector() * SlamBreathStartForwardOffset;
+	SlamBreathStartLocationForwardVector = GetActorForwardVector();
+	Range = 0.0f;
+	CurAdditionalPos = 0.0f;
+	Radius = BaseRadius;
+	
+	if (GetWorldTimerManager().IsTimerActive(SlamTimerHandle) == false)
+	{
+		GetWorldTimerManager().SetTimer(SlamTimerHandle, this, &AStrongGolem::UpdateSlamBreath, 0.1f, true, 0.0f);
+	}
+}
+
+void AStrongGolem::UpdateSlamBreath()
+{
+	CurAdditionalPos = Radius / 2.0f + (Radius + AdditionalRadius) / 2.0f;
+	Range += CurAdditionalPos;
+	const FVector CenterPos = SlamBreathStartLocation + SlamBreathStartLocationForwardVector * Range;
+	Radius += AdditionalRadius;
+	
+	TArray<FOverlapResult> Overlaps;
+	CollectHitActorsWithOcclusionFilter(CenterPos, Radius, Overlaps);
+	
+	if (++Step >= MaxStep)
+	{
+		GetWorldTimerManager().ClearTimer(SlamTimerHandle);
+	}
+}
+
+void AStrongGolem::CollectHitActorsWithOcclusionFilter(const FVector& CenterPos, float SphereRadius, TArray<FOverlapResult>& Overlaps)
+{
+	FCollisionObjectQueryParams ObjQuery;
+	ObjQuery.AddObjectTypesToQuery(ECC_WorldDynamic);
+	
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BreathOverlap), false);
+	QueryParams.AddIgnoredActor(this);
+	
+	const bool bHit = GetWorld()->OverlapMultiByObjectType(Overlaps, CenterPos, FQuat::Identity, ObjQuery, FCollisionShape::MakeSphere(SphereRadius), QueryParams);
+	
+	DrawDebugSphere(GetWorld(), CenterPos, SphereRadius, 12, bHit == true ? FColor::Red : FColor::Green, false, 0.5f);
+		
+	for (const FOverlapResult& R : Overlaps)
+	{
+		AActor* Other = R.GetActor();
+		if (Other == nullptr || Other == this)
+		{
+			continue;
+		}
+		
+		if (HitActorsThisSlam.Contains(Other) == true)
+		{
+			continue;
+		}
+		
+		if (HasLineOfSlamBreathToActor(SlamBreathStartLocation, Other) == false)
+		{
+			continue;
+		}
+		
+		AWaterPunk* WaterPunk = Cast<AWaterPunk>(Other);
+		if (WaterPunk != nullptr)
+		{
+			WaterPunk->Hit();
+		}
+		HitActorsThisSlam.Add(Other);
+	}
+}
+
+bool AStrongGolem::HasLineOfSlamBreathToActor(const FVector& From, AActor* Target) const
+{
+	const FVector To = Target->GetActorLocation();
+	
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(SlamBreathLOS), false);
+	Params.AddIgnoredActor(this);
+	Params.AddIgnoredActor(Target);
+	
+	const bool bBlocked = GetWorld()->LineTraceSingleByChannel(Hit, From, To, ECC_Visibility, Params);
+	
+	if (bBlocked == false)
+	{
+		return true;
+	}
+	
+	return false;
 }

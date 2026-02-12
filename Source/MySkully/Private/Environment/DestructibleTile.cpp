@@ -68,21 +68,27 @@ void ADestructibleTile::ApplyPunchAt(const FVector& PunchDir, const FVector& Wor
 void ADestructibleTile::OnBreak(const FChaosBreakEvent& BreakingData)
 {
 	UE_LOG(LogTemp, Warning, TEXT("[DestructibleTile][OnBreak]"));
-	GetWorldTimerManager().SetTimer(DestroyTimerHandle, this, &ADestructibleTile::UpdateDestroyTransition, 0.01f, true, 5.0f);
+		
+	GeometryCollection->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Ignore);
+	GeometryCollection->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
+	
+	if (GetWorldTimerManager().IsTimerActive(DestroyTimerHandle) == false)
+	{
+		GetWorldTimerManager().SetTimer(DestroyTimerHandle, this, &ADestructibleTile::UpdateDestroyTransition, 0.01f, true, 5.0f);
+	}
 }
 void ADestructibleTile::UpdateDestroyTransition()
 {
+	UE_LOG(LogTemp, Warning, TEXT("[DestructibleTile][UpdateDestroyTransition] DestroyElapsedTime = %f"), DestroyElapsedTime);
+	
 	if (DestroyElapsedTime == 0.0f)
 	{
 		UFieldSystemMetaDataFilter* MetaData = NewObject<UFieldSystemMetaDataFilter>(this);
 		MetaData->SetMetaDataFilterType(EFieldFilterType::Field_Filter_All, EFieldObjectType::Field_Object_All, EFieldPositionType::Field_Position_CenterOfMass);
-
+		
 		UUniformInteger* MakeKinematic = NewObject<UUniformInteger>(this);
 		MakeKinematic->Magnitude = (int32)Chaos::EObjectStateType::Kinematic;
 		GeometryCollection->ApplyPhysicsField(true, EGeometryCollectionPhysicsTypeEnum::Chaos_DynamicState, MetaData, MakeKinematic);
-		
-		GeometryCollection->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Ignore);
-		GeometryCollection->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
 	}
 	
 	DestroyElapsedTime += 0.01f;

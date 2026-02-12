@@ -4,6 +4,7 @@
 #include "GameFramework/Character.h"
 #include "WaterPunk.generated.h"
 
+class USphereComponent;
 struct FAIStimulus;
 class UAISenseConfig_Sight;
 class UAIPerceptionComponent;
@@ -16,18 +17,33 @@ class MYSKULLY_API AWaterPunk : public ACharacter
 
 public:
 	AWaterPunk();
+	
+	// AI
+	void RequestStartAI();
+	void RequestStopAI();
+	void PlayWakeUp();
+	void RequestWakeUp();
+	void SeePlayer();
+	void LostPlayer();
+	void RequestStartChasing();
+	void RequestStopChasing();
+	void Hit();
+	void StartDeathSink();
+	void UpdateDeathSink();
+	void Explosion();
+	void UpdateExplosionScale();
+	
+	FTimerHandle DestroyTimerHandle;
+	float DeathSinkElapsedTime;
 
+	FTimerHandle ExplosionTimerHandle;
+	
 protected:
-	virtual void BeginPlay() override;
-	
 	UFUNCTION()
-	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
-	
+	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+		
 private:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perception", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UAIPerceptionComponent> WaterPunkPerception;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perception", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UAISenseConfig_Sight> SightConfig;
+	void CollectHitActorsWithOcclusionFilter(const FVector& CenterPos, float SphereRadius, TArray<FOverlapResult>& Overlaps);
+	bool HasLineOfSlamBreathToActor(const FVector& From, AActor* Target) const;
 	
 };

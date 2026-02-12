@@ -81,7 +81,10 @@ private:
 	
 	// Transform
 	void TransformToGolem(const TSubclassOf<AGolemCharacter> GolemClass, const float ZOffset);
-	void RideGolem(AGolemCharacter* Golem);
+		
+	// Interaction Collision
+	UFUNCTION()
+	void OnSphereComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	
 private:
 	// Collision(Root)
@@ -167,5 +170,9 @@ private:
 	// Perception
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Perception", meta = (AllowPrivateAccess="true"))
 	TObjectPtr<UAIPerceptionStimuliSourceComponent> PerceptionSourceComponent;
+	
+	// Interaction Collision
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess = true))
+	TObjectPtr<USphereComponent> InteractionCollision;
 	
 };

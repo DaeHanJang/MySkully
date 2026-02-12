@@ -7,6 +7,8 @@
 #include "Components/SphereComponent.h"
 #include "Components/ClayMoundReactiveComponent/ClayMoundReactiveComponent.h"
 #include "Components/HealthComponent/HealthComponent.h"
+#include "Enemy/WaterPunk.h"
+#include "Enemy/Animation/WaterPunkAnimInstance.h"
 #include "GameFramework/SkullyGameMode.h"
 #include "GameFramework/SkullyPlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -25,6 +27,7 @@ ASkully::ASkully()
 	CollisionComponent = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComponent"));
 	CollisionComponent->InitSphereRadius(95.0f);
 	CollisionComponent->SetCollisionProfileName(TEXT("BlockAllDynamic"));
+	CollisionComponent->SetCollisionResponseToChannel(ECC_Destructible, ECR_Ignore);
 	CollisionComponent->SetGenerateOverlapEvents(true);
 	CollisionComponent->PrimaryComponentTick.bCanEverTick = false;
 	SetRootComponent(CollisionComponent);
@@ -103,6 +106,15 @@ ASkully::ASkully()
 	PerceptionSourceComponent = CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>(TEXT("PerceptionSourceComponent"));
 	PerceptionSourceComponent->RegisterForSense(UAISense_Sight::StaticClass());
 	PerceptionSourceComponent->RegisterWithPerceptionSystem();
+	
+	// 감지 콜리전
+	InteractionCollision = CreateDefaultSubobject<USphereComponent>(TEXT("InteractionCollision"));
+	InteractionCollision->SetupAttachment(GetRootComponent());
+	InteractionCollision->InitSphereRadius(3500.0f);
+	InteractionCollision->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+	InteractionCollision->SetGenerateOverlapEvents(true);
+	InteractionCollision->OnComponentBeginOverlap.AddDynamic(this, &ASkully::OnSphereComponentBeginOverlap);
+	InteractionCollision->PrimaryComponentTick.bCanEverTick = false;
 	
 	// 폰 설정
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
@@ -303,6 +315,20 @@ void ASkully::OnEnterClayMound_Implementation()
 void ASkully::OnExitClayMound_Implementation()
 {
 	UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][OnExitClayMound_Implementation] ExitClayMound"));
+}
+
+void ASkully::OnSphereComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (OtherActor == nullptr || OtherActor == this)
+	{
+		return;
+	}
+	
+	AWaterPunk* WaterPunk = Cast<AWaterPunk>(OtherActor);
+	if (WaterPunk != nullptr)
+	{
+		WaterPunk->PlayWakeUp();
+	}
 }
 
 void ASkully::Move(const FInputActionValue& Value)

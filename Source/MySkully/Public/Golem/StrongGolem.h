@@ -19,13 +19,17 @@ public:
 	FORCEINLINE void SetSlam(const bool Value) { bSlam = Value; }
 	FORCEINLINE bool GetSlamEnding() const { return bSlamEnding; }
 	FORCEINLINE void SetSlamEnding(const bool Value) { bSlamEnding = Value; }
-	FORCEINLINE void SetSlamPower(const float Value) { SlamPower = Value; }
+	FORCEINLINE float GetSlamPower() const { return SlamPower; }
+	FORCEINLINE void SetSlamPower(const float Value) { UE_LOG(LogTemp, Warning, TEXT("SlamPower: %f"), Value); SlamPower = Value; }
 	
 	virtual void Eat() override;
 	
 	// Punch Collision
 	void BeginPunchWindow();
 	void EndPunchWindow();
+	
+	// Slam
+	void FireSlamBreath();
 		
 protected:
 	virtual void PossessedBy(AController* NewController) override;
@@ -44,6 +48,11 @@ protected:
 private:
 	// Input
 	void StopSecondary(const FInputActionValue& Value);
+	
+	// Slam
+	void UpdateSlamBreath();
+	void CollectHitActorsWithOcclusionFilter(const FVector& CenterPos, float SphereRadius, TArray<FOverlapResult>& Overlaps);
+	bool HasLineOfSlamBreathToActor(const FVector& From, AActor* Target) const;
 	
 private:
 	// Punch Collision
@@ -68,6 +77,25 @@ private:
 	TSet<TWeakObjectPtr<AActor>> HitActorsThisPunch;
 	
 	// Slam
-	float SlamPower = 0.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slam", meta = (AllowPrivateAccess = "true"))
+	float MaxSlamPower = 0.8f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slam", meta = (AllowPrivateAccess = "true"))
+	float BaseRadius = 200.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slam", meta = (AllowPrivateAccess = "true"))
+	float AdditionalRadius = 50.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slam", meta = (AllowPrivateAccess = "true"))
+	float SlamBreathStartZOffset = -250.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slam", meta = (AllowPrivateAccess = "true"))
+	float SlamBreathStartForwardOffset = 100.0f;
 	
+	float SlamPower = 0.0f;
+	TSet<TWeakObjectPtr<AActor>> HitActorsThisSlam;
+	FTimerHandle SlamTimerHandle;
+	uint8 MaxStep;
+	uint8 Step;
+	FVector SlamBreathStartLocation;
+	FVector SlamBreathStartLocationForwardVector;
+	float Range;
+	float CurAdditionalPos;
+	float Radius;
 };
