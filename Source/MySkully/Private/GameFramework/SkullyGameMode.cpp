@@ -1,12 +1,8 @@
 #include "GameFramework/SkullyGameMode.h"
 
-#include "GameFramework/SkullyPlayerController.h"
+#include "SkullyHUDUserWidget.h"
 #include "Kismet/GameplayStatics.h"
 #include "Skully/Skully.h"
-
-ASkullyGameMode::ASkullyGameMode()
-{
-}
 
 void ASkullyGameMode::RespawnPlayer()
 {
@@ -28,4 +24,10 @@ void ASkullyGameMode::RespawnPlayer()
 		Skully->SetActorLocationAndRotation(SkullyRespawnLocation, FRotator::ZeroRotator);
 	}
 	Skully->Init();
+}
+
+void ASkullyGameMode::AddScore(const uint8 Value)
+{
+	Score += Value;
+	HUD->UpdateCollectableText(Score);
 }

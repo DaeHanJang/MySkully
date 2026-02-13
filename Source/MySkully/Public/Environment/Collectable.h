@@ -11,7 +11,9 @@ class MYSKULLY_API ACollectable : public AActor
 {
 	GENERATED_BODY()
 	
-public:	
+public:
+	FORCEINLINE uint8 GetScore() const { return Score; }
+	
 	ACollectable();
 
 protected:

@@ -3,6 +3,7 @@
 #include "Components/SphereComponent.h"
 #include "GameFramework/SkullyGameMode.h"
 #include "Kismet/GameplayStatics.h"
+#include "Skully/Skully.h"
 
 ACollectable::ACollectable()
 {
@@ -29,7 +30,7 @@ ACollectable::ACollectable()
 void ACollectable::BeginPlay()
 {
 	Super::BeginPlay();
-	
+		
 	if (GetWorldTimerManager().IsTimerActive(RotatorTimerHandle) == false)
 	{
 		GetWorldTimerManager().SetTimer(RotatorTimerHandle, this, &ACollectable::UpdateRotation, 0.01f, true, 0.0f);
