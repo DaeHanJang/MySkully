@@ -1,6 +1,5 @@
 #include "GameFramework/SkullyPlayerController.h"
 
-#include "IPlatformFilePak.h"
 #include "Blueprint/UserWidget.h"
 #include "SkullyHUDUserWidget.h"
 #include "Environment/Collectable.h"
@@ -48,4 +47,9 @@ void ASkullyPlayerController::BeginPlay()
 		}
 	}
 	HUDWidgetInstance->SetCollectableMaxText(MaxScore);
+}
+
+void ASkullyPlayerController::RequestShowCheckPointUI()
+{
+	HUDWidgetInstance->ShowCheckPointUI();
 }

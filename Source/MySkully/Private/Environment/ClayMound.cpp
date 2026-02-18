@@ -1,8 +1,10 @@
 #include "Environment/ClayMound.h"
 
+#include "Components/AudioComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/ClayMoundReactiveComponent/ClayMoundReactiveComponent.h"
 #include "GameFramework/SkullyGameMode.h"
+#include "GameFramework/SkullyPlayerController.h"
 #include "Kismet/GameplayStatics.h"
 
 AClayMound::AClayMound()
@@ -27,6 +29,8 @@ AClayMound::AClayMound()
 	InteractionCollision->SetRelativeLocation(FVector(0.0f, 0.0f, -350.0f));
 	InteractionCollision->SetCollisionProfileName(TEXT("OverlapAll"));
 	InteractionCollision->SetGenerateOverlapEvents(true);
+	InteractionCollision->OnComponentBeginOverlap.AddDynamic(this, &AClayMound::OnBoxComponentBeginOverlap);
+	InteractionCollision->OnComponentEndOverlap.AddDynamic(this, &AClayMound::OnBoxComponentEndOverlap);
 	InteractionCollision->PrimaryComponentTick.bCanEverTick = false;
 	
 	// 블록 콜리전 피벗
@@ -57,13 +61,25 @@ AClayMound::AClayMound()
 		Segment->SetCollisionProfileName(TEXT("BlockAllDynamic"));
 		Segment->PrimaryComponentTick.bCanEverTick = false;
 	}
+	
+	// 사운드
+	AudioComp = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioComp"));
+	AudioComp->SetupAttachment(RootComponent);
+	AudioComp->bAutoActivate = false;
+}
+
+void AClayMound::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	AudioComp->SetSound(LoopSound);
+	AudioComp->Play();
 }
 
 void AClayMound::OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor == nullptr || OtherActor == this)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[ClayMound.cpp][OnBoxComponentBeginOverlap] OtherActor = nullptr"));
 		return;
 	}
 	
@@ -85,17 +101,26 @@ void AClayMound::OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp,
 				return;
 			}
 			
+			UE_LOG(LogTemp, Warning, TEXT("[ClayMound.cpp][OnBoxComponentBeginOverlap]"));
 			ClayMoundReactiveComponent->SetOnClayMoundSurface(true, BlockerPivot->GetComponentLocation());
 			
 			ASkullyGameMode* GM = Cast<ASkullyGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
 			if (GM == nullptr)
 			{
+				UE_LOG(LogTemp, Warning, TEXT("[ClayMound.cpp][OnBoxComponentBeginOverlap] SkullyGameMode = nullptr"));
 				return;
 			}
 			if (SavePriority > GM->GetSaveIndex())
 			{
 				GM->SetSkullyRespawnLocation(GetActorLocation());
 				GM->SetSaveIndex(SavePriority);
+				ASkullyPlayerController* PC = Cast<ASkullyPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+				if (PC == nullptr)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("[ClayMound.cpp][OnBoxComponentBeginOverlap] SkullyPlayerController = nullptr"));
+					return;
+				}
+				PC->RequestShowCheckPointUI();
 			}
 		}
 	}
@@ -105,7 +130,6 @@ void AClayMound::OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, A
 {
 	if (OtherActor == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[ClayMound.cpp][OnBoxComponentEndOverlap] OtherActor = nullptr"));
 		return;
 	}
 	
@@ -127,6 +151,7 @@ void AClayMound::OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, A
 				return;
 			}
 			
+			UE_LOG(LogTemp, Warning, TEXT("[ClayMound.cpp][OnBoxComponentEndOverlap]"));
 			ClayMoundReactiveComponent->SetOnClayMoundSurface(false, FVector::ZeroVector);
 		}
 	}

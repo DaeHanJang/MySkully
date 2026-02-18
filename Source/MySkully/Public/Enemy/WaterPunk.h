@@ -45,5 +45,11 @@ protected:
 private:
 	void CollectHitActorsWithOcclusionFilter(const FVector& CenterPos, float SphereRadius, TArray<FOverlapResult>& Overlaps);
 	bool HasLineOfSlamBreathToActor(const FVector& From, AActor* Target) const;
-	
+
+private:
+	// Sound
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USoundBase> ExplosionSound;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USoundBase> DeathSound;
 };

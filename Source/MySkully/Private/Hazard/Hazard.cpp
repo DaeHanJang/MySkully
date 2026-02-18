@@ -4,6 +4,7 @@
 #include "Components/PostProcessComponent.h"
 #include "Components/HealthComponent/HealthComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Skully/Skully.h"
 #include "Skully/SkullyCameraComponent.h"
 
 AHazard::AHazard()
@@ -27,7 +28,7 @@ AHazard::AHazard()
 	{
 		SurfaceMesh->SetStaticMesh(PlaneMeshAsset.Object);
 		SurfaceMesh->SetupAttachment(RootComponent);
-		SurfaceMesh->SetRelativeLocation(FVector(0.0f, 0.0f, CollisionComponent->GetScaledBoxExtent().Z + 10.0f));
+		SurfaceMesh->SetRelativeLocation(FVector(0.0f, 0.0f, CollisionComponent->GetScaledBoxExtent().Z + 100.0f));
 		SurfaceMesh->SetRelativeScale3D(FVector(50.0f, 50.0f, 10.0f));
 		SurfaceMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		SurfaceMesh->PrimaryComponentTick.bCanEverTick = false;
@@ -57,7 +58,7 @@ void AHazard::OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AA
 		return;
 	}
 	
-	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+	APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
 	if (Player == nullptr)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[Hazard.cpp][OnBoxComponentBeginOverlap] PlayerPawn = nullptr"));
@@ -71,9 +72,15 @@ void AHazard::OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AA
 		// 플레이어 콜리전
 		if (OtherComp == Player->GetRootComponent())
 		{
+			DamagePawn = Player;
 			if (GetWorldTimerManager().IsTimerActive(DamageTimerHandle) == false)
 			{
 				GetWorldTimerManager().SetTimer(DamageTimerHandle, this, &AHazard::DealDamage, DamageInterval, true, 0.0f);
+			}
+			ASkully* Skully = Cast<ASkully>(Player);
+			if (Skully != nullptr)
+			{
+				Skully->PlayInWater();
 			}
 		}
 		// 플레이어 카메라 콜리전
@@ -92,7 +99,7 @@ void AHazard::OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AAct
 		return;
 	}
 	
-	const APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+	APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
 	if (Player == nullptr)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[Hazard.cpp][OnBoxComponentEndOverlap] PlayerPawn = nullptr"));
@@ -106,7 +113,13 @@ void AHazard::OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AAct
 		// 플레이어 콜리전
 		if (OtherComp == Player->GetRootComponent())
 		{
+			DamagePawn = nullptr;
 			GetWorldTimerManager().ClearTimer(DamageTimerHandle);
+			ASkully* Skully = Cast<ASkully>(Player);
+			if (Skully != nullptr)
+			{
+				Skully->PlayOutWater();
+			}
 		}
 		// 플레이어 카메라 콜리전
 		else if (PlayerCamera != nullptr && OtherComp == PlayerCamera->GetCameraCollision())
@@ -118,21 +131,7 @@ void AHazard::OnBoxComponentEndOverlap(UPrimitiveComponent* OverlappedComp, AAct
 
 void AHazard::DealDamage() const
 {
-	const APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
-	if (PC == nullptr)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Hazard.cpp][DealDamage] PlayerController = nullptr"));
-		return;
-	}
-	
-	const APawn* Player = PC->GetPawn();
-	if (Player == nullptr)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Hazard.cpp][DealDamage] PlayerPawn = nullptr"));
-		return;
-	}
-	
-	UHealthComponent* HealthComponent = Player->FindComponentByClass<UHealthComponent>();
+	UHealthComponent* HealthComponent = DamagePawn->FindComponentByClass<UHealthComponent>();
 	if (HealthComponent == nullptr)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[Hazard.cpp][DealDamage] HealthComponent = nullptr"));

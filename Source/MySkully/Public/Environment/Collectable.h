@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "Collectable.generated.h"
 
+class UNiagaraSystem;
 class USphereComponent;
 
 UCLASS()
@@ -40,5 +41,13 @@ private:
 	uint8 Score;
 	
 	FTimerHandle RotatorTimerHandle;
+	
+	// Sound
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USoundBase> CollectSound;
+	
+	// Effect
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Effect", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UNiagaraSystem> Effect;
 	
 };

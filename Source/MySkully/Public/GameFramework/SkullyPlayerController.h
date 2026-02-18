@@ -12,10 +12,12 @@ class MYSKULLY_API ASkullyPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 	
-public:
+public:	
 	FORCEINLINE ASkully* GetSkully() const { return Skully; }
 	FORCEINLINE void SetSkully(ASkully* NewSkully) { Skully = NewSkully; }
 	FORCEINLINE USkullyHUDUserWidget* GetHUDWidget() const { return HUDWidgetInstance; }
+	
+	void RequestShowCheckPointUI();
 	
 protected:
 	virtual void BeginPlay() override;

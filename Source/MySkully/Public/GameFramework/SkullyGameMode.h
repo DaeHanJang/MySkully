@@ -19,12 +19,16 @@ public:
 	FORCEINLINE uint8 GetScore() const { return Score; }
 	FORCEINLINE void SetScore(const uint8 Value) { Score = Value;}
 	FORCEINLINE void SetHUD(USkullyHUDUserWidget* NewHUD) { HUD = NewHUD; }
+	FORCEINLINE uint8 GetDeathCount() const { return DeathCount; }
 	
 	// Save
 	void RespawnPlayer();
 	
 	// Score
 	void AddScore(const uint8 Value);
+	
+protected:
+	virtual void BeginPlay() override;
 	
 private:
 	// Save
@@ -40,5 +44,17 @@ private:
 	// UI
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USkullyHUDUserWidget> HUD;
+	
+	// Sound
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USoundWave> BGM;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USoundWave> Bird;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USoundCue> Wave;
+	
+	// Death Count
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Death", meta = (AllowPrivateAccess = "true"))
+	uint8 DeathCount = 0;
 	
 };

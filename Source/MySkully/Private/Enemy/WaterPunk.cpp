@@ -8,6 +8,7 @@
 #include "Engine/OverlapResult.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Golem/GolemCharacter.h"
+#include "Kismet/GameplayStatics.h"
 #include "Skully/Skully.h"
 
 AWaterPunk::AWaterPunk()
@@ -205,11 +206,14 @@ void AWaterPunk::Hit()
 		return;
 	}
 	
+	GetWorldTimerManager().ClearTimer(DestroyTimerHandle);
+	SetActorScale3D(FVector(1.0f));
 	RequestStopAI();
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetCharacterMovement()->StopMovementImmediately();
 	GetCharacterMovement()->SetComponentTickEnabled(false);
 	WaterPunkAnimInstance->SetHit(true);
+	UGameplayStatics::SpawnSoundAtLocation(GetWorld(), DeathSound, GetActorLocation());
 }
 
 void AWaterPunk::StartDeathSink()
@@ -265,6 +269,7 @@ void AWaterPunk::UpdateExplosionScale()
 		
 		SetActorScale3D(FVector(1.0f));
 		GetWorldTimerManager().ClearTimer(DestroyTimerHandle);
+		UGameplayStatics::SpawnSoundAtLocation(GetWorld(), ExplosionSound, GetActorLocation());
 	}
 }
 
@@ -278,7 +283,7 @@ void AWaterPunk::CollectHitActorsWithOcclusionFilter(const FVector& CenterPos, f
 		
 	const bool bHit = GetWorld()->OverlapMultiByObjectType(Overlaps, CenterPos, FQuat::Identity, ObjQuery, FCollisionShape::MakeSphere(SphereRadius), QueryParams);
 	
-	DrawDebugSphere(GetWorld(), CenterPos, SphereRadius, 12, bHit == true ? FColor::Red : FColor::Green, false, 0.5f);
+	//DrawDebugSphere(GetWorld(), CenterPos, SphereRadius, 12, bHit == true ? FColor::Red : FColor::Green, false, 0.5f);
 	
 	for (const FOverlapResult& R : Overlaps)
 	{

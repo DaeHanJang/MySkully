@@ -23,5 +23,5 @@ void UAN_WaterPunkDie::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBas
 		return;
 	}
 	
-	WaterPunk->Hit();
+	WaterPunk->StartDeathSink();
 }

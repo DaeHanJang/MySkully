@@ -46,6 +46,10 @@ public:
 	void DismountGolem(const float ZOffset);
 	void DespawnGolem();
 	
+	// Sound
+	void PlayInWater();
+	void PlayOutWater();
+	
 protected:
 	virtual void BeginPlay() override;
 	virtual void PossessedBy(AController* NewController) override;
@@ -64,6 +68,7 @@ protected:
 private:
 	// Camera
 	void UpdateCameraFOVFromSpeed(float DeltaTime, float Speed, FVector Dir) const;
+	void DelayDeath();
 	
 	// Input
 	void Move(const FInputActionValue& Value);
@@ -116,6 +121,10 @@ private:
 	float MaxFOV = 110.0f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess="true"))
 	float FOVInterpSpeed = 10.0f;
+	
+	bool IsDeath = false;
+	FTimerHandle DeathTimerHandle;
+	float DeathTimerElapsed;
 	
 	// Movement
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess="true"))
@@ -174,5 +183,21 @@ private:
 	// Interaction Collision
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess = true))
 	TObjectPtr<USphereComponent> InteractionCollision;
+	
+	// Sound
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USoundBase> JumpSound;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USoundBase> ClayMoundInSound;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USoundBase> ClayMoundOutSound;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USoundBase> WaterInSound;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USoundBase> WaterOutSound;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USoundBase> DamageSound;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USoundBase> DeathSound;
 	
 };
