@@ -292,6 +292,10 @@ void AWaterPunk::CollectHitActorsWithOcclusionFilter(const FVector& CenterPos, f
 		{
 			continue;
 		}
+		if (R.GetComponent() != Other->GetRootComponent())
+		{
+			continue;
+		}
 		
 		if (HasLineOfSlamBreathToActor(GetActorLocation(), Other) == false)
 		{
