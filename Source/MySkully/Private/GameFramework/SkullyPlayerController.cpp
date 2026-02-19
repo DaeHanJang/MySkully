@@ -15,6 +15,32 @@ void ASkullyPlayerController::BeginPlay()
 		UE_LOG(LogTemp, Warning, TEXT("[SkullyPlayerController][BeginPlay] LocalController = false"));
 		return;
 	}
+	
+	SetIgnoreMoveInput(true);
+	SetIgnoreLookInput(true);
+	if (LoadingWidgetClass == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SkullyPlayerController][BeginPlay] LoadingWidgetClass = nullptr"));
+		return;
+	}
+	LoadingWidgetInstance = CreateWidget<UUserWidget>(this, LoadingWidgetClass);
+	if (LoadingWidgetInstance == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SkullyPlayerController][BeginPlay] LoadingWidgetClass = nullptr"));
+		return;
+	}
+	LoadingWidgetInstance->AddToViewport(100);
+	FTimerHandle LoadingTimerHandle;
+	GetWorldTimerManager().SetTimer(LoadingTimerHandle, this, &ASkullyPlayerController::ShowHUD, 8.0f, false);
+}
+
+void ASkullyPlayerController::ShowHUD()
+{
+	if (LoadingWidgetInstance)
+	{
+		LoadingWidgetInstance->RemoveFromParent();
+	}
+	
 	if (HUDWidgetClass == nullptr)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[SkullyPlayerController][BeginPlay] HUDWidgetClass = nullptr"));
@@ -47,6 +73,9 @@ void ASkullyPlayerController::BeginPlay()
 		}
 	}
 	HUDWidgetInstance->SetCollectableMaxText(MaxScore);
+	
+	SetIgnoreMoveInput(false);
+	SetIgnoreLookInput(false);
 }
 
 void ASkullyPlayerController::RequestShowCheckPointUI()

@@ -23,11 +23,7 @@ AWaterPunk::AWaterPunk()
 	GetCapsuleComponent()->SetGenerateOverlapEvents(true);
 	GetCapsuleComponent()->OnComponentHit.AddDynamic(this, &AWaterPunk::OnHit);
 	GetCapsuleComponent()->PrimaryComponentTick.bCanEverTick = false;
-	
-	// 애로우 컴포넌트
-	GetArrowComponent()->SetArrowLength(150.0f);
-	GetArrowComponent()->PrimaryComponentTick.bCanEverTick = false;
-	
+		
 	// 메시
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> MeshAsset(TEXT("/Game/Character/WaterPunk/WaterPunk.WaterPunk"));
 	if (MeshAsset.Succeeded() == true)

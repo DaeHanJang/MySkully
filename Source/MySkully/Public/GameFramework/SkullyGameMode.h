@@ -4,7 +4,9 @@
 #include "GameFramework/GameModeBase.h"
 #include "SkullyGameMode.generated.h"
 
+class UNiagaraSystem;
 class USkullyHUDUserWidget;
+class USoundCue;
 
 UCLASS()
 class MYSKULLY_API ASkullyGameMode : public AGameModeBase
@@ -56,5 +58,9 @@ private:
 	// Death Count
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Death", meta = (AllowPrivateAccess = "true"))
 	uint8 DeathCount = 0;
+	
+	// Effect
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Effect", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UNiagaraSystem> Effect;
 	
 };

@@ -29,11 +29,7 @@ AStrongGolem::AStrongGolem()
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Destructible, ECR_Ignore);
 	GetCapsuleComponent()->SetGenerateOverlapEvents(true);
 	GetCapsuleComponent()->PrimaryComponentTick.bCanEverTick = false;
-	
-	// 애로우 컴포넌트
-	GetArrowComponent()->SetArrowLength(150.0f);
-	GetArrowComponent()->PrimaryComponentTick.bCanEverTick = false;
-	
+		
 	// 메시
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> MeshAsset(TEXT("/Game/Character/Strong/Strong.Strong"));
 	if (MeshAsset.Succeeded() == true)

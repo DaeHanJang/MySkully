@@ -412,6 +412,10 @@ void ASkully::Look(const FInputActionValue& Value)
 
 void ASkully::Jump(const FInputActionValue& Value)
 {
+	if (GetController()->IsMoveInputIgnored() == true)
+	{
+		return;
+	}
 	if (bClayMoundInteraction == true)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][Jump] bClayMoundInteraction = true"));

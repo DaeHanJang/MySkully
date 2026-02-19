@@ -23,12 +23,19 @@ protected:
 	virtual void BeginPlay() override;
 	
 private:
+	void ShowHUD();
+	
+private:
 	UPROPERTY();
 	TObjectPtr<ASkully> Skully;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> LoadingWidgetClass;
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UUserWidget> HUDWidgetClass;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UUserWidget> LoadingWidgetInstance;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USkullyHUDUserWidget> HUDWidgetInstance;
 };

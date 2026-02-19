@@ -1,5 +1,7 @@
 #include "GameFramework/SkullyGameMode.h"
 
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
 #include "SkullyHUDUserWidget.h"
 #include "GameFramework/SkullyGameInstance.h"
 #include "Golem/GolemCharacter.h"
@@ -15,6 +17,12 @@ void ASkullyGameMode::BeginPlay()
 	GI->PlayMusic("BGM", BGM);
 	GI->PlayMusic("Bird", Bird, 0.3f);
 	GI->PlayMusic("Wave", Wave, 0.5f);
+	
+	UNiagaraComponent* Warmup = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), Effect, FVector::ZeroVector);
+    Warmup->SetAutoDestroy(true);
+	Warmup->Activate();
+	Warmup->AdvanceSimulation(5, 0.016f);
+	Warmup->Deactivate();
 }
 
 void ASkullyGameMode::RespawnPlayer()
