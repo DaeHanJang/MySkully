@@ -2,13 +2,13 @@
 
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
+#include "SkullyHUDUserWidget.h"
 #include "Components/ArrowComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/ClayMoundReactiveComponent/ClayMoundReactiveComponent.h"
 #include "Components/HealthComponent/HealthComponent.h"
 #include "Enemy/WaterPunk.h"
-#include "Enemy/Animation/WaterPunkAnimInstance.h"
 #include "GameFramework/SkullyGameMode.h"
 #include "GameFramework/SkullyPlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -282,28 +282,60 @@ void ASkully::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 
 void ASkully::OnTakeDamage_Implementation()
 {
-	UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][OnTakeDamage_Implementation] HP: %f"), HealthComponent->GetHealth());
-	// 체력 비례 ClayMesh 스케일 갱신 
-	ClayMesh->SetRelativeScale3D(FVector(HealthComponent->GetHealth() / 100.0f));
-}
-void ASkully::OnDeath_Implementation()
-{
-	UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][OnDeath_Implementation] HP: %f"), HealthComponent->GetHealth());
-	
-	ASkullyGameMode* GM = Cast<ASkullyGameMode>(UGameplayStatics::GetGameMode(this));
-	if (GM == nullptr)
+	if (IsDeath == true)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][OnDeath_Implementation] SkullyGameMode = nullptr"));
 		return;
 	}
 	
-	GM->RespawnPlayer();
+	UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][OnTakeDamage_Implementation] HP: %f"), HealthComponent->GetHealth());
+	// 체력 비례 ClayMesh 스케일 갱신 
+	ClayMesh->SetRelativeScale3D(FVector(HealthComponent->GetHealth() / 100.0f));
+	ASkullyPlayerController* PC = Cast<ASkullyPlayerController>(GetController());
+	if (PC != nullptr)
+	{
+		PC->GetHUDWidget()->TakeDamage(HealthComponent->GetHealth() / 100.0f);
+	}
+	UGameplayStatics::SpawnSoundAtLocation(GetWorld(), DamageSound, GetActorLocation());
+}
+void ASkully::OnDeath_Implementation()
+{
+	if (IsDeath == true)
+	{
+		return;
+	}
+	
+	UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][OnDeath_Implementation] HP: %f"), HealthComponent->GetHealth());
+	
+	IsDeath = true;
+	DeathTimerElapsed = 0.0f;
+	FPostProcessSettings& PS = FollowCamera->PostProcessSettings;
+	PS.bOverride_ColorSaturation = true;
+	PS.ColorSaturation = FVector4(0.0f, 0.0f, 0.0f, 1.0f);
+	PS.bOverride_ColorContrast = true;
+	PS.ColorContrast = FVector4(1.1f, 1.1f, 1.1f, 1.0f);
+	PS.bOverride_ColorGamma = true;
+	PS.ColorGamma = FVector4(0.9f, 0.9f, 0.9f, 1.0f);
+	PS.bOverride_ColorGain = true;
+	PS.ColorGain = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+	ASkullyPlayerController* PC = Cast<ASkullyPlayerController>(GetController());
+	if (PC != nullptr)
+	{
+		PC->GetHUDWidget()->Die();
+	}
+	UGameplayStatics::SpawnSoundAtLocation(GetWorld(), DeathSound, GetActorLocation());
+	GetWorldTimerManager().ClearTimer(DeathTimerHandle);
+	GetWorldTimerManager().SetTimer(DeathTimerHandle, this, &ASkully::DelayDeath, 0.01f, true);
 }
 void ASkully::OnTakeHealth_Implementation()
 {	
 	UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][OnTakeHealth_Implementation] HP: %f"), HealthComponent->GetHealth());
 	// 체력 비례 ClayMesh 스케일 갱신
 	ClayMesh->SetRelativeScale3D(FVector(HealthComponent->GetHealth() / 100.0f));
+	ASkullyPlayerController* PC = Cast<ASkullyPlayerController>(GetController());
+	if (PC != nullptr)
+	{
+		PC->GetHUDWidget()->UpdateHPProgressBar(HealthComponent->GetHealth() / 100.0f);
+	}
 }
 
 void ASkully::OnEnterClayMound_Implementation()
@@ -336,6 +368,10 @@ void ASkully::Move(const FInputActionValue& Value)
 	if (Controller == nullptr)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][Move] Controller = nullptr"));
+		return;
+	}
+	if (IsDeath == true)
+	{
 		return;
 	}
 	
@@ -376,9 +412,17 @@ void ASkully::Look(const FInputActionValue& Value)
 
 void ASkully::Jump(const FInputActionValue& Value)
 {
+	if (GetController()->IsMoveInputIgnored() == true)
+	{
+		return;
+	}
 	if (bClayMoundInteraction == true)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][Jump] bClayMoundInteraction = true"));
+		return;
+	}
+	if (IsDeath == true)
+	{
 		return;
 	}
 	
@@ -388,6 +432,7 @@ void ASkully::Jump(const FInputActionValue& Value)
 		return;
 	}
 	SkullyMovementComponent->RequestJump();
+	UGameplayStatics::SpawnSoundAtLocation(GetWorld(), JumpSound, GetActorLocation());
 }
 void ASkully::StopJump(const FInputActionValue& Value)
 {
@@ -431,6 +476,7 @@ void ASkully::Interact(const FInputActionValue& Value)
 	{
 		GetWorldTimerManager().SetTimer(ClayMoundTransitionTimerHandle, this, &ASkully::UpdateClayMoundTransition, 0.02f, true, 0.0f);
 	}
+	UGameplayStatics::SpawnSoundAtLocation(GetWorld(), ClayMoundInSound, GetActorLocation());
 }
 void ASkully::StopInteract(const FInputActionValue& Value)
 {
@@ -500,6 +546,7 @@ void ASkully::UpdateClayMoundTransition()
 			PC->PlayerCameraManager->ViewPitchMin = -89.9f;
 			PC->PlayerCameraManager->ViewPitchMax = 89.9f;
 			bClayMoundInteraction = false;
+			UGameplayStatics::SpawnSoundAtLocation(GetWorld(), ClayMoundOutSound, GetActorLocation());
 		}
 	}
 }
@@ -634,6 +681,7 @@ void ASkully::DismountGolem(const float ZOffset)
 	
 	PC->Possess(this);
 	CurrentGolem = nullptr;
+	CollisionComponent->UpdateOverlaps();
 }
 
 void ASkully::DespawnGolem()
@@ -750,5 +798,44 @@ void ASkully::ShowSkully(const bool bCollision, const bool bMovementComp, const 
 		{
 			ClayMesh->SetVisibility(true);
 		}
+	}
+}
+
+void ASkully::PlayInWater()
+{
+	UGameplayStatics::SpawnSoundAtLocation(this, WaterInSound, GetActorLocation());
+}
+
+void ASkully::PlayOutWater()
+{
+	UGameplayStatics::SpawnSoundAtLocation(this, WaterOutSound, GetActorLocation());
+}
+
+void ASkully::DelayDeath()
+{
+	DeathTimerElapsed += 0.01f;
+	
+	if (DeathTimerElapsed >= 2.5f)
+	{
+		ASkullyGameMode* GM = Cast<ASkullyGameMode>(UGameplayStatics::GetGameMode(this));
+		if (GM == nullptr)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Skully.cpp][OnDeath_Implementation] SkullyGameMode = nullptr"));
+			return;
+		}
+		GM->RespawnPlayer();
+		FPostProcessSettings& PS = FollowCamera->PostProcessSettings;
+		PS.bOverride_ColorSaturation = false;
+		PS.bOverride_ColorContrast = false;
+		PS.bOverride_ColorGamma = false;
+		PS.bOverride_ColorGain = false;
+		ShowSkully();
+		ASkullyPlayerController* PC = Cast<ASkullyPlayerController>(GetController());
+		if (PC != nullptr)
+		{
+			PC->GetHUDWidget()->InitUI();
+		}
+		IsDeath = false;
+		GetWorldTimerManager().ClearTimer(DeathTimerHandle);
 	}
 }

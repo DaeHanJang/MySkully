@@ -3,6 +3,7 @@
 #include "Components/BoxComponent.h"
 #include "Field/FieldSystemObjects.h"
 #include "GeometryCollection/GeometryCollectionComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 
 ADestructibleTile::ADestructibleTile()
@@ -63,6 +64,8 @@ void ADestructibleTile::ApplyPunchAt(const FVector& PunchDir, const FVector& Wor
 		RadialVel->Magnitude = VelocityMag;
 		GeometryCollection->ApplyPhysicsField(true, EGeometryCollectionPhysicsTypeEnum::Chaos_LinearVelocity, MetaData, RadialVel);
 	}
+	
+	UGameplayStatics::SpawnSoundAtLocation(GetWorld(), DestroySound, GetActorLocation());
 }
 
 void ADestructibleTile::OnBreak(const FChaosBreakEvent& BreakingData)

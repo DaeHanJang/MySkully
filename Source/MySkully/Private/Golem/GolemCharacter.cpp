@@ -4,8 +4,10 @@
 #include "EnhancedInputSubsystems.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SphereComponent.h"
 #include "Components/ClayMoundReactiveComponent/ClayMoundReactiveComponent.h"
 #include "Components/HealthComponent/HealthComponent.h"
+#include "Enemy/WaterPunk.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Perception/AIPerceptionStimuliSourceComponent.h"
@@ -62,6 +64,15 @@ AGolemCharacter::AGolemCharacter()
 	PerceptionSourceComponent = CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>(TEXT("PerceptionSourceComponent"));
 	PerceptionSourceComponent->RegisterForSense(UAISense_Sight::StaticClass());
 	PerceptionSourceComponent->RegisterWithPerceptionSystem();
+	
+	// 감지 콜리전
+	InteractionCollision = CreateDefaultSubobject<USphereComponent>(TEXT("InteractionCollision"));
+	InteractionCollision->SetupAttachment(GetRootComponent());
+	InteractionCollision->InitSphereRadius(3500.0f);
+	InteractionCollision->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+	InteractionCollision->SetGenerateOverlapEvents(true);
+	InteractionCollision->OnComponentBeginOverlap.AddDynamic(this, &AGolemCharacter::OnSphereComponentBeginOverlap);
+	InteractionCollision->PrimaryComponentTick.bCanEverTick = false;
 	
 	// 캐릭터 설정
 	bUseControllerRotationPitch = false;
@@ -473,6 +484,20 @@ void AGolemCharacter::Secondary(const FInputActionValue& Value)
 
 void AGolemCharacter::SecondaryAction_Implementation()
 {
+}
+
+void AGolemCharacter::OnSphereComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (OtherActor == nullptr || OtherActor == this)
+	{
+		return;
+	}
+	
+	AWaterPunk* WaterPunk = Cast<AWaterPunk>(OtherActor);
+	if (WaterPunk != nullptr)
+	{
+		WaterPunk->PlayWakeUp();
+	}
 }
 
 void AGolemCharacter::Despawn() const

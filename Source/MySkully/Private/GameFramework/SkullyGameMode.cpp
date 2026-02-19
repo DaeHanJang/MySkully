@@ -1,15 +1,40 @@
 #include "GameFramework/SkullyGameMode.h"
 
-#include "GameFramework/SkullyPlayerController.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "SkullyHUDUserWidget.h"
+#include "GameFramework/SkullyGameInstance.h"
+#include "Golem/GolemCharacter.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
 #include "Skully/Skully.h"
 
-ASkullyGameMode::ASkullyGameMode()
+void ASkullyGameMode::BeginPlay()
 {
+	Super::BeginPlay();
+	
+	auto* GI = GetGameInstance<USkullyGameInstance>();
+	GI->PlayMusic("BGM", BGM);
+	GI->PlayMusic("Bird", Bird, 0.3f);
+	GI->PlayMusic("Wave", Wave, 0.5f);
+	
+	UNiagaraComponent* Warmup = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), Effect, FVector::ZeroVector);
+    Warmup->SetAutoDestroy(true);
+	Warmup->Activate();
+	Warmup->AdvanceSimulation(5, 0.016f);
+	Warmup->Deactivate();
 }
 
 void ASkullyGameMode::RespawnPlayer()
 {
+	++DeathCount;
+	TArray<AActor*> Found;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AGolemCharacter::StaticClass(), Found);
+	for (AActor* Actor : Found)
+	{
+		Actor->Destroy();
+	}
+	
 	ASkully* Skully = Cast<ASkully>(UGameplayStatics::GetPlayerPawn(this, 0));
 	if (Skully == nullptr)
 	{
@@ -28,4 +53,10 @@ void ASkullyGameMode::RespawnPlayer()
 		Skully->SetActorLocationAndRotation(SkullyRespawnLocation, FRotator::ZeroRotator);
 	}
 	Skully->Init();
+}
+
+void ASkullyGameMode::AddScore(const uint8 Value)
+{
+	Score += Value;
+	HUD->UpdateCollectableText(Score);
 }

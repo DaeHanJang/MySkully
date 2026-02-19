@@ -4,6 +4,7 @@
 #include "Golem/GolemCharacter.h"
 #include "StrongGolem.generated.h"
 
+class UNiagaraSystem;
 class USphereComponent;
 
 UCLASS()
@@ -34,6 +35,10 @@ public:
 protected:
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	
+	// Health Interface
+	virtual void OnTakeDamage_Implementation() override;
+	virtual void OnDeath_Implementation() override;
 	
 	// Input
 	virtual void DismountAction_Implementation() override;
@@ -98,4 +103,9 @@ private:
 	float Range;
 	float CurAdditionalPos;
 	float Radius;
+	
+	// Effect
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Effect", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UNiagaraSystem> Effect;
+	
 };

@@ -3,6 +3,8 @@
 #include "Components/SphereComponent.h"
 #include "GameFramework/SkullyGameMode.h"
 #include "Kismet/GameplayStatics.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
 
 ACollectable::ACollectable()
 {
@@ -29,7 +31,7 @@ ACollectable::ACollectable()
 void ACollectable::BeginPlay()
 {
 	Super::BeginPlay();
-	
+		
 	if (GetWorldTimerManager().IsTimerActive(RotatorTimerHandle) == false)
 	{
 		GetWorldTimerManager().SetTimer(RotatorTimerHandle, this, &ACollectable::UpdateRotation, 0.01f, true, 0.0f);
@@ -61,6 +63,7 @@ void ACollectable::OnCollectableBeginOverlap(UPrimitiveComponent* OverlappedComp
 			GM->AddScore(Score);
 			UE_LOG(LogTemp, Warning, TEXT("[Collectable][OnCollectableBeginOverlap] Score: %d"), GM->GetScore());
 		}
+		
 		RequestDestroy();
 	}
 }
@@ -68,5 +71,21 @@ void ACollectable::OnCollectableBeginOverlap(UPrimitiveComponent* OverlappedComp
 void ACollectable::RequestDestroy()
 {
 	UE_LOG(LogTemp, Warning, TEXT("[Collectable][RequestDestroy]"));
+	UGameplayStatics::SpawnSoundAtLocation(GetWorld(), CollectSound, GetActorLocation());
+	UNiagaraComponent* NiagaraComp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), Effect, GetActorLocation());
+	if (NiagaraComp)
+	{
+		NiagaraComp->SetAutoDestroy(true);
+		FTimerHandle TimerHandle;
+		GetWorldTimerManager().SetTimer(
+			TimerHandle, 
+			[NiagaraComp]()
+			{
+				NiagaraComp->Deactivate();
+			},
+			0.5f,
+			false
+		);
+	}
 	Destroy();
 }

@@ -46,4 +46,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Health", meta = (AllowPrivateAccess="true"))
 	float DamageInterval = 1.0f;
 	FTimerHandle DamageTimerHandle;
+	
+	UPROPERTY()
+	APawn* DamagePawn;
 };

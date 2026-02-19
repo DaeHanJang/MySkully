@@ -1,6 +1,7 @@
 #include "Golem/StrongGolem.h"
 
 #include "EnhancedInputComponent.h"
+#include "NiagaraFunctionLibrary.h"
 #include "Components/ArrowComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -15,6 +16,8 @@
 #include "Golem/Animation/GolemAnimInstance.h"
 #include "Kismet/GameplayStatics.h"
 #include "Skully/Skully.h"
+#include "NiagaraComponent.h"
+#include "Chaos/Deformable/ChaosDeformableCollisionsProxy.h"
 
 AStrongGolem::AStrongGolem()
 {
@@ -26,11 +29,7 @@ AStrongGolem::AStrongGolem()
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Destructible, ECR_Ignore);
 	GetCapsuleComponent()->SetGenerateOverlapEvents(true);
 	GetCapsuleComponent()->PrimaryComponentTick.bCanEverTick = false;
-	
-	// 애로우 컴포넌트
-	GetArrowComponent()->SetArrowLength(150.0f);
-	GetArrowComponent()->PrimaryComponentTick.bCanEverTick = false;
-	
+		
 	// 메시
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> MeshAsset(TEXT("/Game/Character/Strong/Strong.Strong"));
 	if (MeshAsset.Succeeded() == true)
@@ -117,6 +116,20 @@ void AStrongGolem::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		EIC->BindAction(SecondaryInputAction, ETriggerEvent::Started, this, &AGolemCharacter::Secondary);
 		EIC->BindAction(SecondaryInputAction, ETriggerEvent::Completed, this, &AStrongGolem::StopSecondary);
 	}
+}
+
+void AStrongGolem::OnTakeDamage_Implementation()
+{
+	Super::OnTakeDamage_Implementation();
+}
+
+void AStrongGolem::OnDeath_Implementation()
+{
+	Super::OnDeath_Implementation();
+	
+	DismountAction_Implementation();
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, this, &AStrongGolem::DespawnAction_Implementation, 0.5f, false);
 }
 
 void AStrongGolem::DismountAction_Implementation()
@@ -355,7 +368,24 @@ void AStrongGolem::CollectHitActorsWithOcclusionFilter(const FVector& CenterPos,
 	
 	const bool bHit = GetWorld()->OverlapMultiByObjectType(Overlaps, CenterPos, FQuat::Identity, ObjQuery, FCollisionShape::MakeSphere(SphereRadius), QueryParams);
 	
-	DrawDebugSphere(GetWorld(), CenterPos, SphereRadius, 12, bHit == true ? FColor::Red : FColor::Green, false, 0.5f);
+	UNiagaraComponent* NiagaraComp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), Effect, CenterPos);
+	NiagaraComp->SetVariableFloat(TEXT("User.EXP_Size"), SphereRadius / BaseRadius * 600.0f);
+	if (NiagaraComp)
+	{
+		NiagaraComp->SetAutoDestroy(true);
+		FTimerHandle TimerHandle;
+		GetWorldTimerManager().SetTimer(
+			TimerHandle, 
+			[NiagaraComp]()
+			{
+				NiagaraComp->Deactivate();
+			},
+			0.5f,
+			false
+		);
+	}
+	
+	//DrawDebugSphere(GetWorld(), CenterPos, SphereRadius, 12, bHit == true ? FColor::Red : FColor::Green, false, 0.5f);
 		
 	for (const FOverlapResult& R : Overlaps)
 	{

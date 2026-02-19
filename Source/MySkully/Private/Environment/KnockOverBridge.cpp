@@ -1,6 +1,7 @@
 #include "Environment/KnockOverBridge.h"
 
 #include "Components/BoxComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 AKnockOverBridge::AKnockOverBridge()
 {
@@ -86,8 +87,11 @@ void AKnockOverBridge::KnockOver()
 	
 	if (GetWorldTimerManager().IsTimerActive(KnockOverTimerHandle) == false)
 	{
+		OverlapCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		GetWorldTimerManager().SetTimer(KnockOverTimerHandle, this, &AKnockOverBridge::UpdateKnockOverRotation, 0.01f, true, 0.0f);
 	}
+	
+	UGameplayStatics::SpawnSoundAtLocation(GetWorld(), KnockOverSound, GetActorLocation());
 }
 
 void AKnockOverBridge::UpdateKnockOverRotation()

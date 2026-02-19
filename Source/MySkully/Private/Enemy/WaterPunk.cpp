@@ -8,6 +8,7 @@
 #include "Engine/OverlapResult.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Golem/GolemCharacter.h"
+#include "Kismet/GameplayStatics.h"
 #include "Skully/Skully.h"
 
 AWaterPunk::AWaterPunk()
@@ -22,11 +23,7 @@ AWaterPunk::AWaterPunk()
 	GetCapsuleComponent()->SetGenerateOverlapEvents(true);
 	GetCapsuleComponent()->OnComponentHit.AddDynamic(this, &AWaterPunk::OnHit);
 	GetCapsuleComponent()->PrimaryComponentTick.bCanEverTick = false;
-	
-	// 애로우 컴포넌트
-	GetArrowComponent()->SetArrowLength(150.0f);
-	GetArrowComponent()->PrimaryComponentTick.bCanEverTick = false;
-	
+		
 	// 메시
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> MeshAsset(TEXT("/Game/Character/WaterPunk/WaterPunk.WaterPunk"));
 	if (MeshAsset.Succeeded() == true)
@@ -63,20 +60,21 @@ void AWaterPunk::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UP
 	{
 		return;
 	}
-	ASkully* Skully = Cast<ASkully>(OtherActor);
-	if (Skully == nullptr)
-	{
-		return;
-	}
 	
-	UHealthComponent* HealthComponent = Skully->FindComponentByClass<UHealthComponent>();
-	if (HealthComponent == nullptr)
+	const ASkully* Skully = Cast<ASkully>(OtherActor);
+	if (Skully != nullptr && OtherComp == Skully->GetRootComponent())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[WaterPunk][OnHit] HealthComponent = nullptr"));
-		return;
-	}
+		UE_LOG(LogTemp, Warning, TEXT("[WaterPunk][OnHit] On Hit Skully"));
 		
-	HealthComponent->LoseHealth(100.0f);
+		UHealthComponent* HealthComponent = Skully->FindComponentByClass<UHealthComponent>();
+		if (HealthComponent == nullptr)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[WaterPunk][OnHit] HealthComponent = nullptr"));
+			return;
+		}
+		
+		HealthComponent->LoseHealth(100.0f);
+	}
 }
 
 void AWaterPunk::RequestStartAI()
@@ -204,11 +202,14 @@ void AWaterPunk::Hit()
 		return;
 	}
 	
+	GetWorldTimerManager().ClearTimer(DestroyTimerHandle);
+	SetActorScale3D(FVector(1.0f));
 	RequestStopAI();
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	GetMovementComponent()->StopMovementImmediately();
-	GetMovementComponent()->SetComponentTickEnabled(false);
+	GetCharacterMovement()->StopMovementImmediately();
+	GetCharacterMovement()->SetComponentTickEnabled(false);
 	WaterPunkAnimInstance->SetHit(true);
+	UGameplayStatics::SpawnSoundAtLocation(GetWorld(), DeathSound, GetActorLocation());
 }
 
 void AWaterPunk::StartDeathSink()
@@ -264,6 +265,7 @@ void AWaterPunk::UpdateExplosionScale()
 		
 		SetActorScale3D(FVector(1.0f));
 		GetWorldTimerManager().ClearTimer(DestroyTimerHandle);
+		UGameplayStatics::SpawnSoundAtLocation(GetWorld(), ExplosionSound, GetActorLocation());
 	}
 }
 
@@ -277,12 +279,16 @@ void AWaterPunk::CollectHitActorsWithOcclusionFilter(const FVector& CenterPos, f
 		
 	const bool bHit = GetWorld()->OverlapMultiByObjectType(Overlaps, CenterPos, FQuat::Identity, ObjQuery, FCollisionShape::MakeSphere(SphereRadius), QueryParams);
 	
-	DrawDebugSphere(GetWorld(), CenterPos, SphereRadius, 12, bHit == true ? FColor::Red : FColor::Green, false, 0.5f);
+	//DrawDebugSphere(GetWorld(), CenterPos, SphereRadius, 12, bHit == true ? FColor::Red : FColor::Green, false, 0.5f);
 	
 	for (const FOverlapResult& R : Overlaps)
 	{
 		AActor* Other = R.GetActor();
 		if (Other == nullptr || Other == this)
+		{
+			continue;
+		}
+		if (R.GetComponent() != Other->GetRootComponent())
 		{
 			continue;
 		}

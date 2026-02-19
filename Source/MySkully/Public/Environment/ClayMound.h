@@ -14,7 +14,9 @@ class MYSKULLY_API AClayMound : public AActor
 public:
 	AClayMound();
 
-protected:	
+protected:
+	virtual void BeginPlay() override;
+	
 	UFUNCTION()
 	void OnBoxComponentBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	UFUNCTION()
@@ -36,5 +38,11 @@ private:
 	// Save
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Save", meta = (AllowPrivateAccess="true"))
 	uint8 SavePriority = 0;
+	
+	// Sound
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<UAudioComponent> AudioComp;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USoundBase> LoopSound;
 	
 };

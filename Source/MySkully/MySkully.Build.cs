@@ -11,7 +11,7 @@ public class MySkully : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG", "GeometryCollectionEngine",
-			"FieldSystemEngine", "GameplayTasks", "StateTreeModule", "GameplayStateTreeModule", "NavigationSystem"
+			"FieldSystemEngine", "GameplayTasks", "StateTreeModule", "GameplayStateTreeModule", "NavigationSystem", "Niagara"
 		});
 		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 	}

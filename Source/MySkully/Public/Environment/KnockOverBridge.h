@@ -54,4 +54,8 @@ private:
 	float KnockOverDuration = 3.0f;
 	float StartPitch = 90.f;
 	
+	// Sound
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Sound", meta = (AllowPrivateAccess="true"))
+	TObjectPtr<USoundBase> KnockOverSound;
+	
 };
