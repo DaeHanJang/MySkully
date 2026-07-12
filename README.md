@@ -89,7 +89,7 @@
 
 ## 🔗 Links
 
-- 🎥 Play Video
-- 🎥 Technical Video
-- 📄 Portfolio
-- 📚 Notion
+- 🎥 [Play Video](https://youtu.be/ZOezi5IrNAA)
+- 🎥 [Technical Video](https://youtu.be/ZOezi5IrNAA)
+- 📄 [Portfolio](https://drive.google.com/file/d/1frJZNKHnGa0OGk6YKVuEvys0Op7jI9vf/view?usp=sharing)
+- 📚 [Notion](https://kind-rest-e61.notion.site/MySkully-2e53af988a68819fbd6fe4a57503fd19?source=copy_link)
