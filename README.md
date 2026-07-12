@@ -1,7 +1,95 @@
-# MySkully
+# 💀 MySkully
 
-## 개요
-Skully는 해골 형태의 플레이어가 맵의 다양한 기믹을 풀며 헤쳐나가는 어드벤처 3D 플랫포머 게임입니다.
-MySkully 프로젝트는 게임 Skully를 모작을 목표합니다.
+> **프로젝트명**: MySkully
+> 
+> **장르**: 3D Adventure Platformer
+>
+> **개발 인원**: 1인
+> 
+> **개발 기간**: 2026.01 ~ 2026.02 (5주)
+> 
+> **개발 환경**: C++, Unreal Engine 5.6
+> 
+> **원작**: Skully
 
-## 기능
+<br>
+
+## 📖 프로젝트 소개
+
+**MySkully**는 3D 어드벤처 플랫포머 게임 **Skully**를 모작한 개인 프로젝트입니다.
+
+단순히 원작을 재현하는 것이 아니라, **구 형태 캐릭터에 적합한 이동 시스템을 직접 설계**하고 Unreal Engine Gameplay Framework를 이해하는 것을 목표로 개발했습니다.
+
+기본 `CharacterMovementComponent` 대신 **UPawnMovementComponent**를 기반으로 **SkullyMovementComponent**를 직접 구현하여 이동, 중력, 점프, 경사면 처리, 지면 판정 등을 설계했습니다.
+
+<br>
+
+## 🛠 기술 스택
+
+<p>
+<img src="https://img.shields.io/badge/C++-00599C?style=for-the-badge&logo=cplusplus&logoColor=white"/>
+<img src="https://img.shields.io/badge/Unreal_Engine_5.6-313131?style=for-the-badge&logo=unrealengine&logoColor=white"/>
+</p>
+
+<br>
+
+## ⭐ 세부 구현
+
+### 🟠 SkullyMovementComponent
+
+`UPawnMovementComponent`를 기반으로 구 형태 캐릭터에 적합한 이동 시스템을 직접 설계 및 구현했습니다.
+
+#### 주요 기능
+- 입력 기반 이동 처리
+- 중력 및 점프 구현
+- Grounded / Falling 상태 관리
+- Ground Detection (Sphere Sweep + Line Trace)
+- TargetVelocity 기반 가속/감속
+- Stable / Unstable Ground 처리
+- 경사면(Slope) 이동 및 Sliding
+- Collision Resolution
+- 실제 이동량 기반 Visual Roll 연출
+
+### 🟠 Gameplay
+
+플랫폼 게임 플레이를 위한 핵심 시스템을 구현했습니다.
+
+#### Player
+- Skully 플레이어 구현
+- 힘 골렘 변신 시스템
+- Save Point 및 HP 회복
+- Collectible 시스템
+
+#### Enemy
+- Enemy AI
+- 플레이어 추적 및 전투
+- Hazard 시스템
+
+#### UI
+- HUD
+- 체력 UI
+- 수집품 UI
+
+#### Environment
+- 레벨 디자인
+- 파괴 가능한 오브젝트
+- 상호작용 오브젝트
+
+<br>
+
+## 📌 프로젝트 목표
+
+- `UPawnMovementComponent` 기반의 커스텀 이동 시스템 설계
+- 플랫폼 액션 게임에 필요한 이동 및 물리 시스템 구현
+- Unreal Engine Gameplay Framework 구조 이해 및 활용
+- 객체지향 기반의 확장 가능한 Gameplay 시스템 설계
+- C++ 중심의 Gameplay Programming 역량 강화
+
+<br>
+
+## 🔗 Links
+
+- 🎥 Play Video
+- 🎥 Technical Video
+- 📄 Portfolio
+- 📚 Notion
