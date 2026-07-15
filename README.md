@@ -11,6 +11,7 @@
 > **개발 환경**: C++, Unreal Engine 5.6
 > 
 > **원작**: Skully
+<img width="490" height="312" alt="Image" src="https://github.com/user-attachments/assets/eb582e50-e09d-4c3e-a16d-181244fd95c4" />
 
 <br>
 
@@ -35,7 +36,7 @@
 
 ## ⭐ 세부 구현
 
-### 🟠 SkullyMovementComponent
+### 🟠 [SkullyMovementComponent](https://github.com/DaeHanJang/MySkully/blob/main/Source/MySkully/Private/Skully/SkullyMovementComponent.cpp)
 
 `UPawnMovementComponent`를 기반으로 구 형태 캐릭터에 적합한 이동 시스템을 직접 설계 및 구현했습니다.
 
@@ -54,23 +55,23 @@
 
 플랫폼 게임 플레이를 위한 핵심 시스템을 구현했습니다.
 
-#### Player
+#### [Player](https://github.com/DaeHanJang/MySkully/blob/main/Source/MySkully/Private/Skully/Skully.cpp) & [ClayMound](https://github.com/DaeHanJang/MySkully/blob/main/Source/MySkully/Private/Environment/ClayMound.cpp)
 - Skully 플레이어 구현
 - 힘 골렘 변신 시스템
 - Save Point 및 HP 회복
 - Collectible 시스템
 
-#### Enemy
+#### [Enemy](https://github.com/DaeHanJang/MySkully/blob/main/Source/MySkully/Private/Enemy/WaterPunk.cpp)
 - Enemy AI
 - 플레이어 추적 및 전투
 - Hazard 시스템
 
-#### UI
+#### [UI](https://github.com/DaeHanJang/MySkully/blob/main/Source/MySkully/Private/SkullyHUDUserWidget.cpp)
 - HUD
 - 체력 UI
 - 수집품 UI
 
-#### Environment
+#### [Environment](https://github.com/DaeHanJang/MySkully/blob/main/Source/MySkully/Private/Environment/DestructibleTile.cpp)
 - 레벨 디자인
 - 파괴 가능한 오브젝트
 - 상호작용 오브젝트
@@ -89,7 +90,6 @@
 
 ## 🔗 Links
 
-- 🎥 [Play Video](https://youtu.be/ZOezi5IrNAA)
-- 🎥 [Technical Video](https://youtu.be/ZOezi5IrNAA)
+- 🎥 [Video](https://youtu.be/MJ-bvhs99sU?si=WnW93qYsy7ov0zYB)
 - 📄 [Portfolio](https://drive.google.com/file/d/1frJZNKHnGa0OGk6YKVuEvys0Op7jI9vf/view?usp=sharing)
 - 📚 [Notion](https://kind-rest-e61.notion.site/MySkully-2e53af988a68819fbd6fe4a57503fd19?source=copy_link)
