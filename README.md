@@ -90,6 +90,6 @@
 
 ## 🔗 Links
 
-- 🎥 [Video]([https://youtu.be/MJ-bvhs99sU?si=WnW93qYsy7ov0zYB](https://youtu.be/97xa4fcjZwA))
+- 🎥 [Video](https://youtu.be/97xa4fcjZwA)
 - 📄 [Portfolio](https://drive.google.com/file/d/1frJZNKHnGa0OGk6YKVuEvys0Op7jI9vf/view?usp=sharing)
 - 📚 [Notion](https://kind-rest-e61.notion.site/MySkully-2e53af988a68819fbd6fe4a57503fd19?source=copy_link)
