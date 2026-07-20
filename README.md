@@ -20,7 +20,7 @@
 **MySkully**는 3D 어드벤처 플랫포머 게임 Skully를 모작한 개인 프로젝트입니다.
 
 단순히 원작을 재현하는 것이 아니라, 구 형태 캐릭터에 적합한 이동 시스템을 직접 설계하는 것을 목표로 개발했습니다.
-기본 `CharacterMovementComponent` 대신 `UPawnMovementComponent`를 기반으로 `SkullyMovementComponent`를 직접 구현하여 이동, 중력, 점프, 경사면 처리, 지면 판정 등을 설계했습니다.
+기본 CharacterMovementComponent 대신 UPawnMovementComponent를 기반으로 SkullyMovementComponent를 직접 구현하여 이동, 중력, 점프, 경사면 처리, 지면 판정 등을 설계했습니다.
 
 <br>
 
@@ -37,7 +37,7 @@
 
 ### 🟠 [SkullyMovementComponent](https://github.com/DaeHanJang/MySkully/blob/main/Source/MySkully/Private/Skully/SkullyMovementComponent.cpp)
 
-`UPawnMovementComponent`를 기반으로 구 형태 캐릭터에 적합한 이동 시스템을 직접 설계 및 구현했습니다.
+UPawnMovementComponent를 기반으로 구 형태 캐릭터에 적합한 이동 시스템을 직접 설계 및 구현했습니다.
 
 #### 주요 기능
 - 입력 기반 이동 처리
@@ -79,10 +79,8 @@
 
 ## 📌 프로젝트 목표
 
-- `UPawnMovementComponent` 기반의 커스텀 이동 시스템 설계
+- UPawnMovementComponent 기반의 커스텀 이동 시스템 설계
 - 플랫폼 액션 게임에 필요한 이동 및 물리 시스템 구현
-- Unreal Engine Gameplay Framework 구조 이해 및 활용
-- 객체지향 기반의 확장 가능한 Gameplay 시스템 설계
 - C++ 중심의 Gameplay Programming 역량 강화
 
 <br>
