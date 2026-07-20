@@ -17,11 +17,10 @@
 
 ## 📖 프로젝트 소개
 
-**MySkully**는 3D 어드벤처 플랫포머 게임 **Skully**를 모작한 개인 프로젝트입니다.
+**MySkully**는 3D 어드벤처 플랫포머 게임 Skully를 모작한 개인 프로젝트입니다.
 
-단순히 원작을 재현하는 것이 아니라, **구 형태 캐릭터에 적합한 이동 시스템을 직접 설계**하고 Unreal Engine Gameplay Framework를 이해하는 것을 목표로 개발했습니다.
-
-기본 `CharacterMovementComponent` 대신 **UPawnMovementComponent**를 기반으로 **SkullyMovementComponent**를 직접 구현하여 이동, 중력, 점프, 경사면 처리, 지면 판정 등을 설계했습니다.
+단순히 원작을 재현하는 것이 아니라, 구 형태 캐릭터에 적합한 이동 시스템을 직접 설계하는 것을 목표로 개발했습니다.
+기본 `CharacterMovementComponent` 대신 `UPawnMovementComponent`를 기반으로 `SkullyMovementComponent`를 직접 구현하여 이동, 중력, 점프, 경사면 처리, 지면 판정 등을 설계했습니다.
 
 <br>
 
